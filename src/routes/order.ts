@@ -45,9 +45,9 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
           if (!m) throw new Error(`Meal ${it.mealId} not found`)
           return {
             name: m.name,
-            unitPrice: m.price,
+            unitPrice: m.price || 0,
             quantity: it.quantity,
-            totalPrice: (m.price * it.quantity),
+            totalPrice: ((m.price || 0) * it.quantity),
             mealId: m.id,
           }
         } else {
