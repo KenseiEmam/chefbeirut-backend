@@ -7,7 +7,7 @@ const router = express.Router();
 // ==================== PRODUCTS ====================
 
 // Get all products
-router.get("/products", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       include: {
@@ -20,8 +20,8 @@ router.get("/products", async (req, res) => {
   }
 });
 
-// Get single product
-router.get("/products/:id", async (req, res) => {
+// Get single product by ID
+router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const product = await prisma.product.findUnique({
@@ -35,31 +35,12 @@ router.get("/products/:id", async (req, res) => {
   }
 });
 
-// Create product
-router.post("/products", async (req, res) => {
-  const {
-    name,
-    description,
-    details,
-    price,
-    discount,
-    stock,
-    deliveryTime,
-    photo,
-  } = req.body;
-
+// Create a new product
+router.post("/", async (req, res) => {
+  const { name, description, details, price, discount, stock, deliveryTime, photo } = req.body;
   try {
     const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        details,
-        price,
-        discount,
-        stock,
-        deliveryTime,
-        photo,
-      },
+      data: { name, description, details, price, discount, stock, deliveryTime, photo },
     });
     res.json(product);
   } catch (err) {
@@ -67,8 +48,8 @@ router.post("/products", async (req, res) => {
   }
 });
 
-// Update product
-router.put("/products/:id", async (req, res) => {
+// Update a product by ID
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   try {
@@ -82,8 +63,8 @@ router.put("/products/:id", async (req, res) => {
   }
 });
 
-// Delete product
-router.delete("/products/:id", async (req, res) => {
+// Delete a product by ID
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     await prisma.product.delete({ where: { id } });
@@ -92,6 +73,5 @@ router.delete("/products/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete product", details: err });
   }
 });
-
 
 export default router;

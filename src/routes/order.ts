@@ -18,7 +18,7 @@ interface OrderBody {
   items: OrderItemInput[]
 }
 
-// CREATE ORDER (creates order + items + optional transaction later)
+// CREATE ORDER (creates order + items + optional transactions later)
 router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
   try {
     const { userId, deliveryAddress, paymentMethod, deliveryFee, note, items } = req.body
@@ -99,7 +99,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     const orders = await prisma.order.findMany({
       where,
-      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transaction: true },
+      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transactions: true },
       orderBy: { createdAt: 'desc' },
     })
     res.json(orders)
@@ -114,7 +114,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transaction: true },
+      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transactions: true },
     })
     if (!order) return res.status(404).json({ error: 'Order not found' })
     res.json(order)

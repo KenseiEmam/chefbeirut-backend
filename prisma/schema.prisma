@@ -139,8 +139,9 @@ model Plan {
 */
 model Meal {
   id          String   @id @default(uuid())
-  name        String
+  name        String?
   description String?
+  price       Float
   type        String?
   available   Boolean  @default(true)
   stock       Int?     // optional stock tracking
