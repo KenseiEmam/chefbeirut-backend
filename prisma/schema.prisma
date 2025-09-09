@@ -7,10 +7,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/*
+  Core user model. Added inverse relations for drivers and transactions.
+*/
 model User {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   avatar        String?
-  email         String   @unique
+  email         String    @unique
   gender        String?
   fullName      String?
   password      String?
@@ -18,19 +21,101 @@ model User {
   nationality   String?
   dob           DateTime?
 
-  roles         String[] @default([])  // e.g., "admin", "user", "trainer"
-  dietProfile   String[] @default([])  // e.g., "vegan", "keto", "balanced"
-  height        Float?   // in cm
-  weight        Float?   // in kg
-  goals         String?  // e.g., "weight loss", "muscle gain"
-  activityLevel String?  // e.g., "sedentary", "active", "very active"
+  roles         String[]  @default([])
+  dietProfile   String[]  @default([])
+  height        Float?
+  weight        Float?
+  goals         String?
+  activityLevel String?
 
-  plans         Plan[]   // 1-to-many relation with Plan
+  // relations
+  orders        Order[]           // orders placed by this user (customer)
+  plans         Plan[]
+  cart          Cart?
+  reviews       Review[]          // user reviews on products
+  transactions  Transaction[]     // transactions made by this user
+  drivenOrders  Order[]           @relation("DriverOrders") // orders assigned to this user as driver
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
+/*
+  Cart and items (one cart per user - userId is unique).
+*/
+model Cart {
+  id             String       @id @default(uuid())
+  user           User?        @relation(fields: [userId], references: [id])
+  userId         String?      @unique
+  estimatedPrice Float?
+  items          CartItem[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+/*
+  Product model for ecommerce food items.
+  orderItems changed to array (many OrderItem per Product).
+*/
+model Product {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  details       String?
+  price         Float
+  discount      Float?
+  stock         Int       @default(0)
+  deliveryTime  String?
+  photo         String?
+  photos        String[]  @default([])
+  category      String?
+
+  // relations
+  orderItems    OrderItem[]   // many order items may reference a single product
+  reviews       Review[]
+  cartItems     CartItem[]
+  relatedItems  Product[]     @relation("RelatedProducts")
+  relatedBy     Product[]     @relation("RelatedProducts")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/*
+  CartItem can reference a product OR a plan (polymorphic-like).
+*/
+model CartItem {
+  id        String   @id @default(uuid())
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  cartId    String
+
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?
+
+  plan      Plan?    @relation(fields: [planId], references: [id])
+  planId    String?
+
+  quantity  Int      @default(1)
+}
+
+/*
+  Reviews left by users on products.
+*/
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      // 1-5 stars
+  comment   String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+
+  createdAt DateTime @default(now())
+}
+
+/*
+  Plan - subscription / meal plans; relation to cartitems and user
+*/
 model Plan {
   id             String    @id @default(uuid())
   user           User?     @relation(fields: [userId], references: [id])
@@ -41,10 +126,117 @@ model Plan {
   type           String?
   noMeals        Int?
   noDays         Int?
-  specifyDays    String[] @default([]) // optional array of days (Mon, Tue, etc.)
+  specifyDays    String[]  @default([])
   startDate      DateTime?
   expiryDate     DateTime?
-
+  cartItems      CartItem[]    // cart items referencing this plan
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+/*
+  Meals (menu items) with flexible ingredients and macros stored as JSON
+*/
+model Meal {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String?
+  available   Boolean  @default(true)
+  stock       Int?     // optional stock tracking
+  ingredients Json?    // array of ingredient objects: [{ name, qty, unit }]
+  macros      Json?    // e.g. { calories: 500, protein: 30, carbs: 50, fat: 20 }
+  photo       String?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems  OrderItem[]
+}
+
+/*
+  Orders and items. OrderItem can reference a Product or a Meal.
+  Order.driver links to User via the "DriverOrders" relation declared on User.
+*/
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  PICKED_UP
+  EN_ROUTE
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
+  driverId         String?        // delivery driver (User)
+  driver           User?          @relation("DriverOrders", fields: [driverId], references: [id])
+  status           OrderStatus    @default(PENDING)
+  paymentStatus    PaymentStatus  @default(PENDING)
+  paymentMethod    String?        // e.g. 'card', 'cash', 'wallet'
+  deliveryAddress  Json?          // structured address or lat/lng
+  deliveryEta      String?        // e.g. "30-40 mins" or timestamp string
+  subtotal         Float
+  deliveryFee      Float?
+  total            Float
+  note             String?        // customer note / instructions
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // relations
+  items            OrderItem[]
+  transactions     Transaction[]   // one order can have many transactions (payments, refunds, etc.)
+}
+
+/*
+  OrderItem stores a snapshot of name/price at time of purchase.
+  productId and mealId are optional; include product/meal back-relations on those models.
+*/
+model OrderItem {
+  id         String   @id @default(uuid())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    String
+
+  productId  String?  // link to Product (if this item is a product)
+  product    Product? @relation(fields: [productId], references: [id])
+
+  mealId     String?  // link to Meal (if this item is a meal)
+  meal       Meal?    @relation(fields: [mealId], references: [id])
+
+  name       String   // snapshot name at purchase
+  unitPrice  Float
+  quantity   Int      @default(1)
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/*
+  Transactions (payments / receipts). Many transactions can reference one order;
+  many transactions can reference one user.
+*/
+model Transaction {
+  id           String   @id @default(uuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  orderId      String?
+  order        Order?   @relation(fields: [orderId], references: [id])
+  amount       Float
+  currency     String   @default("USD")
+  method       String?  // e.g. 'stripe', 'cash'
+  status       String?  // e.g. 'succeeded', 'failed'
+  receipt      Json?    // raw receipt or gateway response
+  refunded     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
