@@ -141,7 +141,7 @@ model Meal {
   id          String   @id @default(uuid())
   name        String?
   description String?
-  price       Float
+  price       Float? @default(0)
   type        String?
   available   Boolean  @default(true)
   stock       Int?     // optional stock tracking
@@ -214,7 +214,7 @@ model OrderItem {
   mealId     String?  // link to Meal (if this item is a meal)
   meal       Meal?    @relation(fields: [mealId], references: [id])
 
-  name       String   // snapshot name at purchase
+  name       String?   // snapshot name at purchase
   unitPrice  Float
   quantity   Int      @default(1)
   totalPrice Float
