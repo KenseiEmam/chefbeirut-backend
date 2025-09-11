@@ -89,9 +89,10 @@ model CartItem {
   cart      Cart     @relation(fields: [cartId], references: [id])
   cartId    String
 
-  product   Product? 
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?
 
-  plan      Plan?    
+  plan      Json?    
 
   quantity  Int      @default(1)
 }
@@ -112,7 +113,7 @@ model Review {
 }
 
 /*
-  Plan - subscription / meal plans; relation to cartitems and user
+  Plan - subscription / meal plans; relation to user
 */
 model Plan {
   id             String    @id @default(uuid())
@@ -127,7 +128,7 @@ model Plan {
   specifyDays    String[]  @default([])
   startDate      DateTime?
   expiryDate     DateTime?
-  cartItems      CartItem[]    // cart items referencing this plan
+  
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
