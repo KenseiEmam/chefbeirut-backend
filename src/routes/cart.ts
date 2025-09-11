@@ -22,7 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
     const carts = await prisma.cart.findMany({
       where,
       include: {
-        items: { include: { product: true, plan: true } },
+        items: { include: { product: true } },
         user: true,
       },
       orderBy: { updatedAt: 'desc' },
@@ -42,7 +42,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const cart = await prisma.cart.findUnique({
       where: { id },
-      include: { items: { include: { product: true, plan: true } }, user: true },
+      include: { items: { include: { product: true } }, user: true },
     })
     if (!cart) return res.status(404).json({ error: 'Cart not found' })
     res.json(cart)
@@ -63,7 +63,7 @@ router.post('/', async (req: Request<{}, {}, CartBody>, res: Response) => {
   try {
     const cart = await prisma.cart.create({
       data: { userId, estimatedPrice },
-      include: { items: { include: { product: true, plan: true } }, user: true },
+      include: { items: { include: { product: true } }, user: true },
     })
     res.status(201).json(cart)
   } catch (err: any) {
@@ -86,7 +86,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     const cart = await prisma.cart.update({
       where: { id },
       data,
-      include: { items: { include: { product: true, plan: true } }, user: true },
+      include: { items: { include: { product: true } }, user: true },
     })
     res.json(cart)
   } catch (err: any) {

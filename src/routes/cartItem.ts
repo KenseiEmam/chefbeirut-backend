@@ -4,13 +4,6 @@ import { Prisma } from '@prisma/client'
 
 const router = Router()
 
-interface CartItemBody {
-  cartId: string
-  productId?: string
-  plan?: object
-  quantity?: number
-}
-
 
 interface CartItemBody {
   cartId: string
@@ -88,7 +81,7 @@ router.post('/', async (req: Request<{}, {}, CartItemBody>, res: Response) => {
       data: {
         cartId,
         productId: productId ?? undefined,
-        plan: plan ? (plan as Prisma.JsonValue) : undefined,
+        plan: plan ? (plan as Prisma.InputJsonValue) : undefined,
         quantity,
       },
       include: { product: true }, // only relations can be included
@@ -118,7 +111,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     const data: any = {}
     if (typeof quantity === 'number') data.quantity = quantity
     if (productId !== undefined) { data.productId = productId; data.plan = null }
-    if (plan !== undefined) { data.plan = plan as Prisma.JsonValue; data.productId = null }
+    if (plan !== undefined) { data.plan = plan as Prisma.InputJsonValue; data.productId = null }
 
     const updated = await prisma.cartItem.update({
       where: { id },
