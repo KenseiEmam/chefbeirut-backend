@@ -89,8 +89,7 @@ model CartItem {
   cart      Cart     @relation(fields: [cartId], references: [id])
   cartId    String
 
-  product   Product? @relation(fields: [productId], references: [id])
-  productId String?
+  product   Product? 
 
   plan      Plan?    
 
