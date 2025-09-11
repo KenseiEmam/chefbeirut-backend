@@ -77,24 +77,41 @@ router.post('/', async (req: Request<{}, {}, CartBody>, res: Response) => {
 
 /**
  * PATCH /api/cart/:id
- * Body can include: { estimatedPrice, userId } (you can also restrict fields)
+ * Body can include: { estimatedPrice, userId }
  */
 router.patch('/:id', async (req: Request, res: Response) => {
   const { id } = req.params
-  const data = req.body as CartBody
+  const { estimatedPrice, userId } = req.body
+
   try {
     const cart = await prisma.cart.update({
       where: { id },
-      data,
-      include: { items: { include: { product: true } }, user: true },
+      data: {
+        ...(estimatedPrice !== undefined && { estimatedPrice }),
+        ...(userId !== undefined && { user: { connect: { id: userId } } }),
+      },
+      include: {
+        items: { include: { product: true } },
+        user: true,
+      },
     })
+
     res.json(cart)
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Cart not found' })
-    if (err?.code === 'P2002') return res.status(400).json({ error: 'Unique constraint error', details: err.message })
-    res.status(500).json({ error: 'Failed to update cart', details: err?.message || err })
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'Cart not found' })
+    }
+    if (err?.code === 'P2002') {
+      return res
+        .status(400)
+        .json({ error: 'Unique constraint error', details: err.message })
+    }
+    res
+      .status(500)
+      .json({ error: 'Failed to update cart', details: err?.message || err })
   }
 })
+
 
 /**
  * DELETE /api/cart/:id
