@@ -6,7 +6,7 @@ const router = Router()
 interface MealBody {
   name?: string
   description?: string
-  price?: number
+  price: number
   available?: boolean
   stock?: number
   ingredients?: any // Json

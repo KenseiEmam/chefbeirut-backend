@@ -8,9 +8,10 @@ const router = Router()
 interface CartItemBody {
   cartId: string
   productId?: string
-  plan?: object 
+  plan?: any 
   quantity?: number
 }
+
 
 /**
  * GET /api/cart-items
@@ -71,7 +72,6 @@ router.post('/', async (req: Request<{}, {}, CartItemBody>, res: Response) => {
   if (!productId && !plan) return res.status(400).json({ error: 'productId or plan is required' })
   if (productId && plan) return res.status(400).json({ error: 'Provide either productId or plan, not both' })
   if (quantity <= 0) return res.status(400).json({ error: 'quantity must be >= 1' })
-  if (plan && typeof plan !== 'object') return res.status(400).json({ error: 'plan must be a valid object' })
 
   try {
     const cart = await prisma.cart.findUnique({ where: { id: cartId } })
@@ -81,7 +81,7 @@ router.post('/', async (req: Request<{}, {}, CartItemBody>, res: Response) => {
       data: {
         cartId,
         productId: productId ?? undefined,
-        plan: plan ? (plan as Prisma.InputJsonValue) : undefined,
+        plan: plan ?? undefined,
         quantity,
       },
       include: { product: true }, // only relations can be included
