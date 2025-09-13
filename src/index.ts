@@ -9,6 +9,7 @@ import productRoutes from './routes/product';
 import mealRoutes from './routes/meal';
 import orderRoutes from './routes/order';
 import transactionRoutes from './routes/transaction';
+import storageRoutes from './routes/storage';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/media', storageRoutes);
 
 // ==================== SERVER ====================
 const PORT = process.env.PORT || 4000;

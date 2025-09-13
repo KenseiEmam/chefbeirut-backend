@@ -65,3 +65,5 @@ router.post('/save-metadata', async (req, res) => {
   
   }
 });
+
+export default router
