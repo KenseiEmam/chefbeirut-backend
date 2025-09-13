@@ -83,14 +83,13 @@ model Product {
 /*
   s3_files can reference a media item at the S3 storage.
 */
-model S3_FILES {
+model S3File {
   id        String   @id @default(uuid())
-  objectKey      String     @unique
-  fileUrl    String
-
-  createdAt     DateTime  @default(now())
-  
+  objectKey String
+  fileUrl   String
+  createdAt DateTime @default(now())
 }
+
 
 /*
   CartItem can reference a product OR a plan (polymorphic-like).

@@ -43,25 +43,27 @@ router.post('/presign-upload', async (req, res) => {
   
   }
 });
-
-// 2. Save Metadata after Client Upload Confirmation
 router.post('/save-metadata', async (req, res) => {
   try {
-    const { objectKey, publicFileUrl } = req.body;
-    
-    if (!objectKey) throw new Error('objectKey required');
+    const { objectKey, publicFileUrl } = req.body
 
-    const file = await prisma.s3_FILES.create({
-      data: { objectKey, fileUrl:publicFileUrl },
-    });
-    console.log(`Metadata saved for S3 object: ${objectKey}`);
-    return res.json(file);
-    
-  } catch (error:any) {
-    console.error('Metadata Save Error:', error.message);
-    res.status(500).json({ error: "Failed to save metadata", details: error });
-  
+    if (!objectKey) throw new Error('objectKey required')
+    if (!publicFileUrl) throw new Error('publicFileUrl required')
+
+    const file = await prisma.s3File.create({
+      data: {
+        objectKey,
+        fileUrl: publicFileUrl,
+      },
+    })
+
+    console.log(`Metadata saved for S3 object: ${objectKey}`)
+    return res.json(file)
+  } catch (error: any) {
+    console.error('Metadata Save Error:', error)
+    res.status(500).json({ error: 'Failed to save metadata', details: error })
   }
-});
+})
+
 
 export default router;
