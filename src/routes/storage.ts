@@ -1,6 +1,4 @@
 import express from "express";
-
-
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import 'dotenv/config';
@@ -53,7 +51,7 @@ router.post('/save-metadata', async (req, res) => {
     
     if (!objectKey) throw new Error('objectKey required');
 
-    const file = await prisma.s3_files.create({
+    const file = await prisma.s3_FILES.create({
       data: { objectKey, fileUrl:publicFileUrl },
     });
     console.log(`Metadata saved for S3 object: ${objectKey}`);
@@ -66,4 +64,4 @@ router.post('/save-metadata', async (req, res) => {
   }
 });
 
-export default router
+export default router;
