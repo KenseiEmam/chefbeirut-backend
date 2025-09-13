@@ -59,9 +59,9 @@ router.post('/save-metadata', async (req, res) => {
 
     console.log(`Metadata saved for S3 object: ${objectKey}`)
     return res.json(file)
-  } catch (error: any) {
-    console.error('Metadata Save Error:', error)
-    res.status(500).json({ error: 'Failed to save metadata', details: error })
+  } catch (err: any) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'meta not found' })
+    res.status(500).json({ error: err.message || 'Failed to run meta data save' })
   }
 })
 
