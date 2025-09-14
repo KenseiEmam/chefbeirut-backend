@@ -89,6 +89,83 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
   }
 })
 
+// POST /orders-from-plans
+router.post('/orders-from-plans', async (req: Request, res: Response) => {
+  try {
+    const { type, mealCategory } = req.body
+
+    if (!type || !mealCategory) {
+      return res.status(400).json({ error: 'type and mealCategory are required' })
+    }
+
+    // 1️⃣ Fetch all plans of this type
+    const plans = await prisma.plan.findMany({
+      where: { type },
+    })
+
+    if (!plans.length) {
+      return res.status(404).json({ error: 'No plans found for this type' })
+    }
+
+    // 2️⃣ Fetch all meals that match type & category, ordered by creation date
+    const meals = await prisma.meal.findMany({
+      where: { type, category: mealCategory, available: true },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    if (!meals.length) {
+      return res.status(404).json({ error: `No meals found for category "${mealCategory}" and type "${type}"` })
+    }
+
+    // 3️⃣ Map type -> first meal (to pick quickly per plan)
+    const mealMap = new Map<string, typeof meals[0]>()
+    for (const meal of meals) {
+      if (!mealMap.has(meal.type!)) {
+        mealMap.set(meal.type!, meal)
+      }
+    }
+
+    const createdOrders: any[] = []
+
+    // 4️⃣ Loop through plans and create one order per plan
+    for (const plan of plans) {
+      if (!plan.userId) continue
+
+      const meal = mealMap.get(plan.type!)
+      if (!meal) continue
+
+      const item = {
+        mealId: meal.id,
+        name: meal.name!,
+        unitPrice: meal.price || 0,
+        quantity: 1,
+        totalPrice: meal.price || 0,
+      }
+
+      const order = await prisma.order.create({
+        data: {
+          userId: plan.userId,
+          subtotal: item.totalPrice,
+          total: item.totalPrice,
+          status:"PREPARING",
+          items: { create: [item] },
+        },
+        include: { items: true },
+      })
+
+      createdOrders.push(order)
+    }
+
+    if (!createdOrders.length) {
+      return res.status(404).json({ error: 'No orders could be created — no matching meals found for any plan' })
+    }
+
+    res.status(201).json(createdOrders)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create orders from plans' })
+  }
+})
+
 // GET ALL ORDERS (with optional filters)
 router.get('/', async (req: Request, res: Response) => {
   try {

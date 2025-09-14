@@ -81,7 +81,7 @@ model Product {
   updatedAt     DateTime  @updatedAt
 }
 /*
-  s3_files can reference a media item at the S3 storage.
+  S3File can reference a media item at the S3 storage.
 */
 model S3File {
   id        String   @id @default(uuid())
