@@ -232,7 +232,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
     }))
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
-if (!plan.user?.address) throw "User needs a delivery address"
+    if (!plan.user?.address) throw "User needs a delivery address"
     // 5️⃣ Create order
     const order = await prisma.order.create({
       data: {
