@@ -150,14 +150,14 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
       }))
 
       const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
-
+if (!plan.user?.address) continue
       const order = await prisma.order.create({
         data: {
           userId: plan.userId,
           subtotal,
           total: subtotal,
           status: "PREPARING",
-          deliveryAddress: plan.user?.address || null, // 👈 attach user address
+          deliveryAddress: plan.user.address , // 👈 attach user address
           items: { create: items },
         },
         include: { items: true },
@@ -232,7 +232,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
     }))
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
-
+if (!plan.user?.address) throw "User needs a delivery address"
     // 5️⃣ Create order
     const order = await prisma.order.create({
       data: {
@@ -240,7 +240,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         subtotal,
         total: subtotal,
         status: "PREPARING",
-        deliveryAddress: plan.user?.address || null, // 👈 attach user address
+        deliveryAddress: plan.user.address || null, // 👈 attach user address
         items: { create: items },
       },
       include: { items: true },
