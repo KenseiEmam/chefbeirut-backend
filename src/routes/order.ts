@@ -240,7 +240,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         subtotal,
         total: subtotal,
         status: "PREPARING",
-        deliveryAddress: plan.user.address || null, // 👈 attach user address
+        deliveryAddress: plan.user.address , // 👈 attach user address
         items: { create: items },
       },
       include: { items: true },
