@@ -92,10 +92,10 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
 // POST /orders-from-plans
 router.post('/orders-from-plans', async (req: Request, res: Response) => {
   try {
-    const { type, mealCategory } = req.body
+    const { type, mealId, mealCategory } = req.body
 
-    if (!type || !mealCategory) {
-      return res.status(400).json({ error: 'type and mealCategory are required' })
+    if (!type || !mealId) {
+      return res.status(400).json({ error: 'type and mealId are required' })
     }
 
     // 1️⃣ Fetch all plans of this type
@@ -107,32 +107,38 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No plans found for this type' })
     }
 
-    // 2️⃣ Fetch all meals that match type & category, ordered by creation date
-    const meals = await prisma.meal.findMany({
-      where: { type, category: mealCategory, available: true },
-      orderBy: { createdAt: 'asc' },
+    // 2️⃣ Fetch the specific meal
+    const meal = await prisma.meal.findUnique({
+      where: { id: mealId },
     })
 
-    if (!meals.length) {
-      return res.status(404).json({ error: `No meals found for category "${mealCategory}" and type "${type}"` })
-    }
-
-    // 3️⃣ Map type -> first meal (to pick quickly per plan)
-    const mealMap = new Map<string, typeof meals[0]>()
-    for (const meal of meals) {
-      if (!mealMap.has(meal.type!)) {
-        mealMap.set(meal.type!, meal)
-      }
+    if (!meal || !meal.available) {
+      return res.status(404).json({ error: `No meal found for ID "${mealId}" and type "${type}"` })
     }
 
     const createdOrders: any[] = []
 
-    // 4️⃣ Loop through plans and create one order per plan
+    // Get today's start and end
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date()
+    endOfDay.setHours(23, 59, 59, 999)
+
+    // 3️⃣ Loop through plans and create order if no existing order today has the same meal category
     for (const plan of plans) {
       if (!plan.userId) continue
 
-      const meal = mealMap.get(plan.type!)
-      if (!meal) continue
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          userId: plan.userId,
+          createdAt: { gte: startOfDay, lt: endOfDay },
+          items: {
+            some: { meal: { category: mealCategory } },
+          },
+        },
+      })
+
+      if (existingOrder) continue // skip if today's order already has this category
 
       const item = {
         mealId: meal.id,
@@ -147,7 +153,7 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
           userId: plan.userId,
           subtotal: item.totalPrice,
           total: item.totalPrice,
-          status:"PREPARING",
+          status: "PREPARING",
           items: { create: [item] },
         },
         include: { items: true },
@@ -157,7 +163,7 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     }
 
     if (!createdOrders.length) {
-      return res.status(404).json({ error: 'No orders could be created — no matching meals found for any plan' })
+      return res.status(404).json({ error: 'No orders created — all plans already have this category ordered today' })
     }
 
     res.status(201).json(createdOrders)
@@ -165,6 +171,8 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     res.status(500).json({ error: err.message || 'Failed to create orders from plans' })
   }
 })
+
+
 
 // GET ALL ORDERS (with optional filters)
 router.get('/', async (req: Request, res: Response) => {
