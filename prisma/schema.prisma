@@ -27,7 +27,7 @@ model User {
   weight        Float?
   goals         String?
   activityLevel String?
-
+  address       String?
   // relations
   orders        Order[]           // orders placed by this user (customer)
   plans         Plan[]

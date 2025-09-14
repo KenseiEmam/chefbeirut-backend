@@ -17,6 +17,7 @@ interface RegisterBody {
   nationality?: string;
   dietProfile?: string[];
   roles?: string[];
+  address?:string;
 }
 
 interface LoginBody {

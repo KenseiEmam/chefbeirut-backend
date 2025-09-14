@@ -88,73 +88,77 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
     res.status(500).json({ error: err.message || 'Failed to create order' })
   }
 })
-
 // POST /orders-from-plans
 router.post('/orders-from-plans', async (req: Request, res: Response) => {
   try {
-    const { type, mealId, mealCategory } = req.body
+    const { type, mealIds } = req.body
 
-    if (!type || !mealId) {
-      return res.status(400).json({ error: 'type and mealId are required' })
+    if (!type || !Array.isArray(mealIds) || mealIds.length === 0) {
+      return res.status(400).json({ error: 'type and mealIds[] are required' })
     }
 
-    // 1️⃣ Fetch all plans of this type
+    // 1️⃣ Fetch all plans of this type with their users (for address)
     const plans = await prisma.plan.findMany({
       where: { type },
+      include: { user: true }, // 👈 grab the user and their address
     })
 
     if (!plans.length) {
       return res.status(404).json({ error: 'No plans found for this type' })
     }
 
-    // 2️⃣ Fetch the specific meal
-    const meal = await prisma.meal.findUnique({
-      where: { id: mealId },
+    // 2️⃣ Fetch all meals in the provided mealIds
+    const meals = await prisma.meal.findMany({
+      where: { id: { in: mealIds }, available: true },
     })
 
-    if (!meal || !meal.available) {
-      return res.status(404).json({ error: `No meal found for ID "${mealId}" and type "${type}"` })
+    if (!meals.length) {
+      return res.status(404).json({ error: 'No meals found for provided mealIds' })
     }
 
     const createdOrders: any[] = []
 
-    // Get today's start and end
+    // 3️⃣ Today's date range
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date()
     endOfDay.setHours(23, 59, 59, 999)
 
-    // 3️⃣ Loop through plans and create order if no existing order today has the same meal category
+    // 4️⃣ Loop through plans and create orders with correct # of meals
     for (const plan of plans) {
-      if (!plan.userId) continue
+      if (!plan.userId || !plan.noMeals) continue
 
+      // skip if the user already has an order today
       const existingOrder = await prisma.order.findFirst({
         where: {
           userId: plan.userId,
           createdAt: { gte: startOfDay, lt: endOfDay },
-          items: {
-            some: { meal: { category: mealCategory } },
-          },
         },
       })
+      if (existingOrder) continue
 
-      if (existingOrder) continue // skip if today's order already has this category
+      // select meals based on noMeals for the plan
+      const selectedMeals = meals.slice(0, plan.noMeals)
+      if (!selectedMeals.length) continue
 
-      const item = {
+      const items = selectedMeals.map((meal) => ({
         mealId: meal.id,
-        name: meal.name!,
+        name: meal.name || 'Meal',
         unitPrice: meal.price || 0,
         quantity: 1,
         totalPrice: meal.price || 0,
-      }
+      }))
+
+      const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
 
       const order = await prisma.order.create({
         data: {
           userId: plan.userId,
-          subtotal: item.totalPrice,
-          total: item.totalPrice,
+          subtotal,
+          total: subtotal,
           status: "PREPARING",
-          items: { create: [item] },
+          deliveryAddress: plan.user?.address || null, // 👈 attach user address
+          items: { create: items },
         },
         include: { items: true },
       })
@@ -163,7 +167,7 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     }
 
     if (!createdOrders.length) {
-      return res.status(404).json({ error: 'No orders created — all plans already have this category ordered today' })
+      return res.status(404).json({ error: 'No orders created — either no plans matched or all already ordered today' })
     }
 
     res.status(201).json(createdOrders)
@@ -172,6 +176,81 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
   }
 })
 
+
+// POST /orders/from-plan/:planId
+router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => {
+  try {
+    const { planId } = req.params
+    const { mealIds } = req.body
+
+    if (!mealIds || !Array.isArray(mealIds) || !mealIds.length) {
+      return res.status(400).json({ error: 'mealIds must be a non-empty array' })
+    }
+
+    // 1️⃣ Fetch the plan with its user (for address)
+    const plan = await prisma.plan.findUnique({
+      where: { id: planId },
+      include: { user: true }, // 👈 include user
+    })
+
+    if (!plan) {
+      return res.status(404).json({ error: `Plan "${planId}" not found` })
+    }
+
+    if (!plan.userId) {
+      return res.status(400).json({ error: `Plan "${planId}" is not linked to a user` })
+    }
+
+    // 2️⃣ Validate meal count matches the plan
+    if (plan.noMeals !== mealIds.length) {
+      return res.status(400).json({
+        error: `Plan requires ${plan.noMeals} meals, but ${mealIds.length} were provided`,
+      })
+    }
+
+    // 3️⃣ Fetch the meals
+    const meals = await prisma.meal.findMany({
+      where: {
+        id: { in: mealIds },
+        available: true,
+      },
+    })
+
+    if (meals.length !== mealIds.length) {
+      return res.status(400).json({
+        error: `Some mealIds are invalid or unavailable`,
+      })
+    }
+
+    // 4️⃣ Build order items
+    const items = meals.map(meal => ({
+      mealId: meal.id,
+      name: meal.name!,
+      unitPrice: meal.price || 0,
+      quantity: 1,
+      totalPrice: meal.price || 0,
+    }))
+
+    const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+
+    // 5️⃣ Create order
+    const order = await prisma.order.create({
+      data: {
+        userId: plan.userId,
+        subtotal,
+        total: subtotal,
+        status: "PREPARING",
+        deliveryAddress: plan.user?.address || null, // 👈 attach user address
+        items: { create: items },
+      },
+      include: { items: true },
+    })
+
+    res.status(201).json(order)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create order from plan' })
+  }
+})
 
 
 // GET ALL ORDERS (with optional filters)
