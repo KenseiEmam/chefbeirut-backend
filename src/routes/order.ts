@@ -16,6 +16,8 @@ interface OrderBody {
   deliveryFee?: number
   note?: string
   items: OrderItemInput[]
+  cancelReason?: string
+  cancelDate?:Date
 }
 
 // CREATE ORDER (creates order + items + optional transactions later)
