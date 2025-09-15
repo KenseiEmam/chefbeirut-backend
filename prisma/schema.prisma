@@ -1,88 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-/*
-  Core user model. Added inverse relations for drivers and transactions.
-*/
+/// Core user model. Added inverse relations for drivers and transactions.
 model User {
-  id            String    @id @default(uuid())
+  id            String        @id @default(uuid())
   avatar        String?
-  email         String    @unique
+  email         String        @unique
   gender        String?
   fullName      String?
-  password      String?
   phone         String?
-  nationality   String?
   dob           DateTime?
-
-  roles         String[]  @default([])
-  dietProfile   String[]  @default([])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  password      String?
+  nationality   String?
+  activityLevel String?
+  goals         String?
   height        Float?
   weight        Float?
-  goals         String?
-  activityLevel String?
-  address       Json?          // structured address or lat/lng
-  // relations
-  orders        Order[]           // orders placed by this user (customer)
-  plans         Plan[]
+  dietProfile   String[]      @default([])
+  roles         String[]      @default([])
+  address       Json?
   cart          Cart?
-  reviews       Review[]          // user reviews on products
-  transactions  Transaction[]     // transactions made by this user
-  drivenOrders  Order[]           @relation("DriverOrders") // orders assigned to this user as driver
-
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-}
-
-/*
-  Cart and items (one cart per user - userId is unique).
-*/
-model Cart {
-  id             String       @id @default(uuid())
-  user           User?        @relation(fields: [userId], references: [id])
-  userId         String?      @unique
-  estimatedPrice Float?
-  items          CartItem[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-}
-
-/*
-  Product model for ecommerce food items.
-  orderItems changed to array (many OrderItem per Product).
-*/
-model Product {
-  id            String    @id @default(uuid())
-  name          String
-  description   String?
-  details       String?
-  price         Float
-  discount      Float?
-  stock         Int       @default(0)
-  deliveryTime  String?
-  photo         String?
-  photos        String[]  @default([])
-  category      String?
-
-  // relations
-  orderItems    OrderItem[]   // many order items may reference a single product
+  drivenOrders  Order[]       @relation("DriverOrders")
+  orders        Order[]
+  plans         Plan[]
   reviews       Review[]
-  cartItems     CartItem[]
-  relatedItems  Product[]     @relation("RelatedProducts")
-  relatedBy     Product[]     @relation("RelatedProducts")
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  transactions  Transaction[]
 }
-/*
-  S3File can reference a media item at the S3 storage.
-*/
+
+/// Cart and items (one cart per user - userId is unique).
+model Cart {
+  id             String     @id @default(uuid())
+  userId         String?    @unique
+  estimatedPrice Float?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  user           User?      @relation(fields: [userId], references: [id])
+  items          CartItem[]
+}
+
+/// Product model for ecommerce food items.
+///   orderItems changed to array (many OrderItem per Product).
+model Product {
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
+  details      String?
+  price        Float
+  discount     Float?
+  stock        Int         @default(0)
+  deliveryTime String?
+  photo        String?
+  photos       String[]    @default([])
+  category     String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+  Product_A    Product[]   @relation("RelatedProducts")
+  Product_B    Product[]   @relation("RelatedProducts")
+}
+
+/// S3File can reference a media item at the S3 storage.
 model S3File {
   id        String   @id @default(uuid())
   objectKey String
@@ -90,46 +77,33 @@ model S3File {
   createdAt DateTime @default(now())
 }
 
-
-/*
-  CartItem can reference a product OR a plan (polymorphic-like).
-*/
+/// CartItem can reference a product OR a plan (polymorphic-like).
 model CartItem {
   id        String   @id @default(uuid())
-  cart      Cart     @relation(fields: [cartId], references: [id])
   cartId    String
-
-  product   Product? @relation(fields: [productId], references: [id])
   productId String?
-
-  plan      Json?    
-
   quantity  Int      @default(1)
+  plan      Json?
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  product   Product? @relation(fields: [productId], references: [id])
 }
 
-/*
-  Reviews left by users on products.
-*/
+/// Reviews left by users on products.
 model Review {
   id        String   @id @default(uuid())
-  rating    Int      // 1-5 stars
+  rating    Int
   comment   String?
-  user      User     @relation(fields: [userId], references: [id])
   userId    String
-  product   Product  @relation(fields: [productId], references: [id])
   productId String
-
   createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
-/*
-  Plan - subscription / meal plans; relation to user
-*/
+/// Plan - subscription / meal plans; relation to user
 model Plan {
   id             String    @id @default(uuid())
-  user           User?     @relation(fields: [userId], references: [id])
   userId         String?
-
   status         String?   @default("active")
   estimatedPrice Float?
   type           String?
@@ -138,36 +112,90 @@ model Plan {
   specifyDays    String[]  @default([])
   startDate      DateTime?
   expiryDate     DateTime?
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User?     @relation(fields: [userId], references: [id])
 }
 
-/*
-  Meals (menu items) with flexible ingredients and macros stored as JSON
-*/
+/// Meals (menu items) with flexible ingredients and macros stored as JSON
 model Meal {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   name        String?
   description String?
-  price       Float? @default(0)
   type        String?
-  available   Boolean  @default(true)
-  stock       Int?     // optional stock tracking
-  ingredients Json?    // array of ingredient objects: [{ name, qty, unit }]
-  macros      Json?    // e.g. { calories: 500, protein: 30, carbs: 50, fat: 20 }
+  available   Boolean     @default(true)
+  stock       Int?
+  ingredients Json?
+  macros      Json?
   photo       String?
   category    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  price       Float?      @default(0)
   orderItems  OrderItem[]
 }
 
-/*
-  Orders and items. OrderItem can reference a Product or a Meal.
-  Order.driver links to User via the "DriverOrders" relation declared on User.
-*/
+model Order {
+  id              String        @id @default(uuid())
+  userId          String
+  driverId        String?
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  deliveryAddress Json?
+  deliveryEta     String?
+  subtotal        Float
+  deliveryFee     Float?
+  total           Float
+  note            String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  cancelDate      DateTime?
+  cancelReason    String?
+  driver          User?         @relation("DriverOrders", fields: [driverId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  transactions    Transaction[]
+}
+
+/// OrderItem stores a snapshot of name/price at time of purchase.
+///   productId and mealId are optional; include product/meal back-relations on those models.
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  productId  String?
+  mealId     String?
+  name       String?
+  unitPrice  Float
+  quantity   Int      @default(1)
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  meal       Meal?    @relation(fields: [mealId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id])
+  product    Product? @relation(fields: [productId], references: [id])
+}
+
+/// Transactions (payments / receipts). Many transactions can reference one order;
+///   many transactions can reference one user.
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String?
+  orderId   String?
+  amount    Float
+  currency  String   @default("USD")
+  method    String?
+  status    String?
+  receipt   Json?
+  refunded  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     Order?   @relation(fields: [orderId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+/// Orders and items. OrderItem can reference a Product or a Meal.
+///   Order.driver links to User via the "DriverOrders" relation declared on User.
 enum OrderStatus {
   PENDING
   PREPARING
@@ -183,71 +211,4 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
-}
-
-model Order {
-  id               String         @id @default(uuid())
-  userId           String
-  user             User           @relation(fields: [userId], references: [id])
-  driverId         String?        // delivery driver (User)
-  driver           User?          @relation("DriverOrders", fields: [driverId], references: [id])
-  status           OrderStatus    @default(PENDING)
-  paymentStatus    PaymentStatus  @default(PENDING)
-  paymentMethod    String?        // e.g. 'card', 'cash', 'wallet'
-  deliveryAddress  Json?          // structured address or lat/lng
-  deliveryEta      String?        // e.g. "30-40 mins" or timestamp string
-  subtotal         Float
-  deliveryFee      Float?
-  total            Float
-  note             String?        // customer note / instructions
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  cancelReason     String?
-  cancelDate       DateTime? 
-  // relations
-  items            OrderItem[]
-  transactions     Transaction[]   // one order can have many transactions (payments, refunds, etc.)
-}
-
-/*
-  OrderItem stores a snapshot of name/price at time of purchase.
-  productId and mealId are optional; include product/meal back-relations on those models.
-*/
-model OrderItem {
-  id         String   @id @default(uuid())
-  order      Order    @relation(fields: [orderId], references: [id])
-  orderId    String
-
-  productId  String?  // link to Product (if this item is a product)
-  product    Product? @relation(fields: [productId], references: [id])
-
-  mealId     String?  // link to Meal (if this item is a meal)
-  meal       Meal?    @relation(fields: [mealId], references: [id])
-
-  name       String?   // snapshot name at purchase
-  unitPrice  Float
-  quantity   Int      @default(1)
-  totalPrice Float
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-/*
-  Transactions (payments / receipts). Many transactions can reference one order;
-  many transactions can reference one user.
-*/
-model Transaction {
-  id           String   @id @default(uuid())
-  userId       String?
-  user         User?    @relation(fields: [userId], references: [id])
-  orderId      String?
-  order        Order?   @relation(fields: [orderId], references: [id])
-  amount       Float
-  currency     String   @default("USD")
-  method       String?  // e.g. 'stripe', 'cash'
-  status       String?  // e.g. 'succeeded', 'failed'
-  receipt      Json?    // raw receipt or gateway response
-  refunded     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
