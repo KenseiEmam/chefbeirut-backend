@@ -202,7 +202,8 @@ model Order {
   note             String?        // customer note / instructions
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
-
+  cancelReason     String?
+  cancelDate       DateTime? 
   // relations
   items            OrderItem[]
   transactions     Transaction[]   // one order can have many transactions (payments, refunds, etc.)
