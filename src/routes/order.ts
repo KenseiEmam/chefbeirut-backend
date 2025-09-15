@@ -258,9 +258,10 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
 // GET ALL ORDERS (with optional filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { userId, status } = req.query
+    const { userId, driverId, status } = req.query
     const where: any = {}
     if (userId) where.userId = String(userId)
+    if (driverId) where.driverId = String(driverId)
     if (status) where.status = String(status)
 
     const orders = await prisma.order.findMany({
