@@ -98,7 +98,7 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     if (!type || !Array.isArray(mealIds) || mealIds.length === 0) {
       return res.status(400).json({ error: 'type and mealIds[] are required' })
     }
-
+    
     // 1️⃣ Fetch all plans of this type with their users (for address)
     const plans = await prisma.plan.findMany({
       where: { type },
@@ -117,9 +117,22 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     if (!meals.length) {
       return res.status(404).json({ error: 'No meals found for provided mealIds' })
     }
+    
 
     const createdOrders: any[] = []
 
+     // 3️⃣ Today's weekday as string
+    const today = new Date()
+    const weekdays = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ]
+    const todayName = weekdays[today.getDay()]
     // 3️⃣ Today's date range
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
@@ -129,6 +142,11 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     // 4️⃣ Loop through plans and create orders with correct # of meals
     for (const plan of plans) {
       if (!plan.userId || !plan.noMeals) continue
+
+      // 🔹 Skip if today is not in specifyDays
+      if (plan.specifyDays && Array.isArray(plan.specifyDays)) {
+        if (!plan.specifyDays.includes(todayName)) continue
+      }
 
       // skip if the user already has an order today
       const existingOrder = await prisma.order.findFirst({
