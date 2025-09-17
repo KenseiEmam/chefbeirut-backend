@@ -109,15 +109,13 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No plans found for this type' })
     }
 
-    // 2️⃣ Fetch all meals in the provided mealIds
-    const meals = await prisma.meal.findMany({
-      where: { id: { in: mealIds }, available: true },
-    })
+   // 2️⃣ Fetch all meals in the provided mealIds (unique set)
+const meals = await prisma.meal.findMany({
+  where: { id: { in: mealIds }, available: true },
+})
 
-    if (!meals.length) {
-      return res.status(404).json({ error: 'No meals found for provided mealIds' })
-    }
-    
+// Map mealId → meal object for quick lookup
+const mealMap = new Map(meals.map(m => [m.id, m]))
 
     const createdOrders: any[] = []
 
@@ -139,52 +137,62 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     const endOfDay = new Date()
     endOfDay.setHours(23, 59, 59, 999)
 
-    // 4️⃣ Loop through plans and create orders with correct # of meals
-    for (const plan of plans) {
-      if (!plan.userId || !plan.noMeals) continue
+// 4️⃣ Loop through plans
+for (const plan of plans) {
+  if (!plan.userId || !plan.noMeals) continue
 
-      // 🔹 Skip if today is not in specifyDays
-      if (plan.specifyDays && Array.isArray(plan.specifyDays)) {
-        if (!plan.specifyDays.includes(todayName)) continue
-      }
 
-      // skip if the user already has an order today
-      const existingOrder = await prisma.order.findFirst({
-        where: {
-          userId: plan.userId,
-          createdAt: { gte: startOfDay, lt: endOfDay },
-        },
-      })
-      if (existingOrder) continue
+  // Skip if today is not in specifyDays
+  if (plan.specifyDays && Array.isArray(plan.specifyDays)) {
+    if (!plan.specifyDays.includes(todayName)) continue
+  }
 
-      // select meals based on noMeals for the plan
-      const selectedMeals = meals.slice(0, plan.noMeals)
-      if (!selectedMeals.length) continue
+  // Skip if the user already has an order today
+  const existingOrder = await prisma.order.findFirst({
+    where: {
+      userId: plan.userId,
+      createdAt: { gte: startOfDay, lt: endOfDay },
+    },
+  })
+  if (existingOrder) continue
 
-      const items = selectedMeals.map((meal) => ({
-        mealId: meal.id,
-        name: meal.name || 'Meal',
-        unitPrice: meal.price || 0,
-        quantity: 1,
-        totalPrice: meal.price || 0,
-      }))
+  // 🔹 Preserve duplicates from the original request
+  const selectedMealIds = mealIds.slice(0, plan.noMeals)
 
-      const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
-if (!plan.user?.address) continue
-      const order = await prisma.order.create({
-        data: {
-          userId: plan.userId,
-          subtotal,
-          total: subtotal,
-          status: "PREPARING",
-          deliveryAddress: plan.user.address , // 👈 attach user address
-          items: { create: items },
-        },
-        include: { items: true },
-      })
-
-      createdOrders.push(order)
+  const items = selectedMealIds
+  .map((id) => {
+    const meal = mealMap.get(id)
+    if (!meal) return null
+    return {
+      mealId: meal.id,
+      name: meal.name || 'Meal',
+      unitPrice: meal.price || 0,
+      quantity: 1,
+      totalPrice: meal.price || 0,
     }
+  })
+  .filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
+
+  if (!items.length) continue
+  if (!plan.user?.address) continue
+
+  const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+
+  const order = await prisma.order.create({
+    data: {
+      userId: plan.userId,
+      subtotal,
+      total: subtotal,
+      status: "PREPARING",
+      deliveryAddress: plan.user.address,
+      items: { create: items },
+    },
+    include: { items: true },
+  })
+
+  createdOrders.push(order)
+}
+
 
     if (!createdOrders.length) {
       return res.status(404).json({ error: 'No orders created — either no plans matched or all already ordered today' })
