@@ -236,28 +236,32 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
       })
     }
 
-    // 3️⃣ Fetch the meals
-    const meals = await prisma.meal.findMany({
-      where: {
-        id: { in: mealIds },
-        available: true,
-      },
-    })
+      const uniqueMealIds = [...new Set(mealIds)]
 
-    if (meals.length !== mealIds.length) {
-      return res.status(400).json({
-        error: `Some mealIds are invalid or unavailable`,
+      const meals = await prisma.meal.findMany({
+        where: { id: { in: uniqueMealIds }, available: true },
       })
-    }
 
-    // 4️⃣ Build order items
-    const items = meals.map(meal => ({
-      mealId: meal.id,
-      name: meal.name!,
-      unitPrice: meal.price || 0,
-      quantity: 1,
-      totalPrice: meal.price || 0,
-    }))
+      if (meals.length !== uniqueMealIds.length) {
+        return res.status(400).json({
+          error: `Some mealIds are invalid or unavailable`,
+        })
+      }
+          const mealMap = new Map(meals.map(m => [m.id, m]))
+
+      const items = mealIds.map(id => {
+        const meal = mealMap.get(id)
+        if (!meal) return null
+        return {
+          mealId: meal.id,
+          name: meal.name!,
+          unitPrice: meal.price || 0,
+          quantity: 1,
+          totalPrice: meal.price || 0,
+        }
+      }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
+
+
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
     if (!plan.user?.address) throw "User needs a delivery address"
