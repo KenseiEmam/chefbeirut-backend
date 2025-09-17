@@ -55,7 +55,24 @@ router.post('/', async (req: Request<{}, {}, PlanBody>, res: Response) => {
 // ===== FETCH ALL PLANS =====
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const { userId, driverId, status } = req.query
+    const where: any = {}
+
+    if (userId) where.userId = String(userId)
+    if (driverId) where.driverId = String(driverId)
+
+    if (!status) {
+      // no status filter → exclude cancelled
+      where.status = { not: 'cancelled' }
+    } else if (status === 'cancelled') {
+      // explicitly fetch cancelled
+      where.status = 'cancelled'
+    } else {
+      // filter by given status but exclude cancelled
+      where.status = { equals: String(status), not: 'cancelled' }
+    }
     const plans = await prisma.plan.findMany({
+      where,
       include: { user: true },
     });
     res.json(plans);

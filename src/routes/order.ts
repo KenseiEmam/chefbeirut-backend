@@ -290,20 +290,38 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { userId, driverId, status } = req.query
     const where: any = {}
+
     if (userId) where.userId = String(userId)
     if (driverId) where.driverId = String(driverId)
-    if (status) where.status = String(status)
+
+    if (!status) {
+      // no status filter → exclude CANCELLED
+      where.status = { not: 'CANCELLED' }
+    } else if (status === 'CANCELLED') {
+      // explicitly fetch CANCELLED
+      where.status = 'CANCELLED'
+    } else {
+      // filter by given status but exclude CANCELLED
+      where.status = { equals: String(status), not: 'CANCELLED' }
+    }
 
     const orders = await prisma.order.findMany({
       where,
-      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transactions: true },
+      include: {
+        items: { include: { product: true, meal: true } },
+        user: true,
+        driver: true,
+        transactions: true,
+      },
       orderBy: { createdAt: 'desc' },
     })
+
     res.json(orders)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch orders' })
   }
 })
+
 
 // GET SINGLE ORDER
 router.get('/:id', async (req: Request, res: Response) => {
