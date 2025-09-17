@@ -28,6 +28,6 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/media', storageRoutes);
 
-// ==================== SERVER ====================
+// ==================== SERVER ==================== 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
