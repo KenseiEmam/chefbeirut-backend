@@ -230,7 +230,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
     }
 
     // 2️⃣ Validate meal count matches the plan
-    if (plan.noMeals !== mealIds.length) {
+    if (plan.noMeals !== mealIds.length - 1) {
       return res.status(400).json({
         error: `Plan requires ${plan.noMeals} meals, but ${mealIds.length} were provided`,
       })
