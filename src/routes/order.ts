@@ -157,7 +157,7 @@ for (const plan of plans) {
   if (existingOrder) continue
 
   // 🔹 Preserve duplicates from the original request
-  const selectedMealIds = mealIds.slice(0, plan.noMeals)
+  const selectedMealIds = mealIds.slice(0, plan.noMeals+1)
 
   const items = selectedMealIds
   .map((id) => {
