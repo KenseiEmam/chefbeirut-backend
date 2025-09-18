@@ -321,8 +321,8 @@ router.get('/', async (req: Request, res: Response) => {
       take: size,
       orderBy: { createdAt: 'desc' },
     })
-
-    res.json(orders)
+const count = await prisma.order.count({ where })
+    res.json({orders,count})
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch orders' })
   }

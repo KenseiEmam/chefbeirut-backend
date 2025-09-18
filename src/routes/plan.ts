@@ -1,6 +1,7 @@
 // api/routes/plan.ts
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { count } from 'console';
 
 const router = Router();
 
@@ -78,7 +79,8 @@ router.get('/', async (req: Request, res: Response) => {
       take: size,
       include: { user: true },
     });
-    res.json(plans);
+    const count = await prisma.plan.count({ where })
+    res.json({plans,count});
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch plans' });
   }
