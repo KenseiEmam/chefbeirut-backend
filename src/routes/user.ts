@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { equal } from 'assert';
 
 const router = Router();
 
@@ -37,7 +38,14 @@ router.post('/register', async (req: Request<{}, {}, RegisterBody>, res: Respons
   }
 
   try {
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email as string,
+          mode: 'insensitive',
+        },
+      },
+    });
     if (existingUser) {
       return res.status(409).json({ error: 'Email already in use' });
     }
@@ -77,7 +85,15 @@ router.post('/login', async (req: Request<{}, {}, LoginBody>, res: Response) => 
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Use findFirst for case-insensitive email search
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email as string,
+          mode: 'insensitive',
+        },
+      },
+    });
 
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (!user.password) return res.status(403).json({ error: 'User has not set a password yet' });
@@ -86,14 +102,21 @@ router.post('/login', async (req: Request<{}, {}, LoginBody>, res: Response) => 
     if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
     // Sign JWT
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
+    // Exclude password from response
     const { password: _, ...userWithoutPassword } = user;
+
     res.json({ user: userWithoutPassword, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to login' });
   }
 });
+
 // ===== UPDATE SINGLE USER =====
 router.patch('/:id', async (req: Request, res: Response) => {
   const { id } = req.params; // id from the URL
