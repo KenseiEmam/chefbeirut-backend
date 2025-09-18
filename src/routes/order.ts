@@ -288,7 +288,11 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
 // GET ALL ORDERS (with optional filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { userId, driverId, status } = req.query
+    
+ 
+    const { userId, driverId, status, page = '1', pageSize = '10', } = req.query
+     const pageNum = parseInt(page as string, 10);
+  const size = parseInt(pageSize as string, 10);
     const where: any = {}
 
     if (userId) where.userId = String(userId)

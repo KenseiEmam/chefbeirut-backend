@@ -55,9 +55,10 @@ router.post('/', async (req: Request<{}, {}, PlanBody>, res: Response) => {
 // ===== FETCH ALL PLANS =====
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { userId, driverId, status } = req.query
+    const { userId, driverId, status,page = '1', pageSize = '10' } = req.query
     const where: any = {}
-
+    const pageNum = parseInt(page as string, 10);
+    const size = parseInt(pageSize as string, 10);
     if (userId) where.userId = String(userId)
     if (driverId) where.driverId = String(driverId)
 
@@ -73,6 +74,8 @@ router.get('/', async (req: Request, res: Response) => {
     }
     const plans = await prisma.plan.findMany({
       where,
+      skip: (pageNum - 1) * size,
+      take: size,
       include: { user: true },
     });
     res.json(plans);

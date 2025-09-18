@@ -9,7 +9,12 @@ const router = express.Router();
 // Get all products
 router.get("/", async (req, res) => {
   try {
+    const { page = '1', pageSize = '10' } = req.query;
+    const pageNum = parseInt(page as string, 10);
+  const size = parseInt(pageSize as string, 10);
     const products = await prisma.product.findMany({
+      skip: (pageNum - 1) * size,
+      take: size,
       include: {
         reviews: true, // include related reviews
       },
