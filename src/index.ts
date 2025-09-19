@@ -10,13 +10,13 @@ import mealRoutes from './routes/meal';
 import orderRoutes from './routes/order';
 import transactionRoutes from './routes/transaction';
 import storageRoutes from './routes/storage';
-
+import { authenticateApp } from "./auth.js"
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+app.use(authenticateApp)
 // ==================== API ROUTES ====================
 app.use('/api/users', userRoutes);
 app.use('/api/plans', planRoutes);
