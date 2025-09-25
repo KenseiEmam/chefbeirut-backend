@@ -14,6 +14,7 @@ interface OrderBody {
   deliveryAddress?: any
   paymentMethod?: string
   deliveryFee?: number
+  deliveryEta?: string
   note?: string
   items: OrderItemInput[]
   cancelReason?: string
@@ -93,7 +94,7 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
 // POST /orders-from-plans
 router.post('/orders-from-plans', async (req: Request, res: Response) => {
   try {
-    const { type, mealIds } = req.body
+    const { type, mealIds, dateAssigned} = req.body
 
     if (!type || !Array.isArray(mealIds) || mealIds.length === 0) {
       return res.status(400).json({ error: 'type and mealIds[] are required' })
@@ -120,7 +121,7 @@ const mealMap = new Map(meals.map(m => [m.id, m]))
     const createdOrders: any[] = []
 
      // 3️⃣ Today's weekday as string
-    const today = new Date()
+    const today = dateAssigned || new Date()
     const weekdays = [
       "Sunday",
       "Monday",
@@ -158,7 +159,7 @@ for (const plan of plans) {
 
   // 🔹 Preserve duplicates from the original request
   const selectedMealIds = mealIds.slice(0, plan.noMeals+1)
-
+  
   const items = selectedMealIds
   .map((id) => {
     const meal = mealMap.get(id)
@@ -167,6 +168,7 @@ for (const plan of plans) {
       mealId: meal.id,
       name: meal.name || 'Meal',
       unitPrice: meal.price || 0,
+      deliveryEta: dateAssigned || new Date() ,
       quantity: 1,
       totalPrice: meal.price || 0,
     }
@@ -209,7 +211,7 @@ for (const plan of plans) {
 router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => {
   try {
     const { planId } = req.params
-    const { mealIds } = req.body
+    const { mealIds, dateAssigned } = req.body
 
     if (!mealIds || !Array.isArray(mealIds) || !mealIds.length) {
       return res.status(400).json({ error: 'mealIds must be a non-empty array' })
@@ -257,6 +259,7 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
           name: meal.name!,
           unitPrice: meal.price || 0,
           quantity: 1,
+          deliveryEta: dateAssigned || new Date() ,
           totalPrice: meal.price || 0,
         }
       }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
