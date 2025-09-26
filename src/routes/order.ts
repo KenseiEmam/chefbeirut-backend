@@ -169,7 +169,6 @@ for (const plan of plans) {
       meal: { connect: { id: meal.id } },
       name: meal.name || 'Meal',
       unitPrice: meal.price || 0,
-      deliveryEta:new Date(dateAssigned).toISOString() ,
       quantity: 1,
       totalPrice: meal.price || 0,
     }
@@ -188,6 +187,7 @@ for (const plan of plans) {
       total: subtotal,
       status: "PREPARING",
       deliveryAddress: plan.user.address,
+      deliveryEta:new Date(dateAssigned).toISOString() ,
       items: { create: items },
     },
     include: { items: true },
@@ -260,7 +260,6 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
           name: meal.name!,
           unitPrice: meal.price || 0,
           quantity: 1,
-          deliveryEta: new Date(dateAssigned).toISOString() || new Date().toISOString() ,
           totalPrice: meal.price || 0,
         }
       }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
@@ -276,7 +275,8 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         subtotal,
         total: subtotal,
         status: "PREPARING",
-        deliveryAddress: plan.user.address , // 👈 attach user address
+        deliveryAddress: plan.user.address ,
+        deliveryEta: new Date(dateAssigned).toISOString() || new Date().toISOString() , // 👈 attach user address
         items: { create: items },
       },
       include: { items: true },
