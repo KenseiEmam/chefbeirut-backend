@@ -305,13 +305,17 @@ if (driverId) where.driverId = String(driverId);
 if (name) where.user = { fullName: { contains: String(name), mode: 'insensitive' } };
 
 if (today) {
-  const start = new Date(today as string);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(today as string);
-  end.setHours(23, 59, 59, 999);
-  where.deliveryEta = { gte: start, lte: end };
-}
+  const start = new Date(today as string)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(today as string)
+  end.setHours(23, 59, 59, 999)
 
+  // Convert to ISO strings
+  where.deliveryEta = {
+    gte: start.toISOString(),
+    lte: end.toISOString(),
+  }
+}
 if (!status) {
   where.status = { not: 'CANCELLED' };
 } else if (status === 'CANCELLED') {
