@@ -294,24 +294,31 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     
  
-    const { userId, driverId, status, page = '1', pageSize = '10', name} = req.query
-     const pageNum = parseInt(page as string, 10);
-  const size = parseInt(pageSize as string, 10);
-    const where: any = {}
+    const { userId, driverId, status, page = '1', pageSize = '10', name, today } = req.query;
+const pageNum = parseInt(page as string, 10);
+const size = parseInt(pageSize as string, 10);
 
-    if (userId) where.userId = String(userId)
-    if (driverId) where.driverId = String(driverId)
-    if (name) where.user.fullName = { contains: name as string, mode: 'insensitive' };
-    if (!status) {
-      // no status filter → exclude CANCELLED
-      where.status = { not: 'CANCELLED' }
-    } else if (status === 'CANCELLED') {
-      // explicitly fetch CANCELLED
-      where.status = 'CANCELLED'
-    } else {
-      // filter by given status but exclude CANCELLED
-      where.status = { equals: String(status), not: 'CANCELLED' }
-    }
+const where: any = {};
+
+if (userId) where.userId = String(userId);
+if (driverId) where.driverId = String(driverId);
+if (name) where.user = { fullName: { contains: String(name), mode: 'insensitive' } };
+
+if (today) {
+  const start = new Date(today as string);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(today as string);
+  end.setHours(23, 59, 59, 999);
+  where.deliveryEta = { gte: start, lte: end };
+}
+
+if (!status) {
+  where.status = { not: 'CANCELLED' };
+} else if (status === 'CANCELLED') {
+  where.status = 'CANCELLED';
+} else {
+  where.status = { equals: String(status), not: 'CANCELLED' };
+}
 
     const orders = await prisma.order.findMany({
       where,
