@@ -24,7 +24,7 @@ interface OrderBody {
 // CREATE ORDER (creates order + items + optional transactions later)
 router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
   try {
-    const { userId, deliveryAddress, paymentMethod, deliveryFee, note, items } = req.body
+    const { userId, deliveryAddress, paymentMethod, deliveryFee, note, items, deliveryEta } = req.body
 
     if (!userId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'userId and items are required' })
@@ -69,6 +69,7 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
         deliveryAddress,
         paymentMethod,
         deliveryFee: delivery,
+        deliveryEta,
         subtotal,
         total,
         note,
@@ -165,10 +166,10 @@ for (const plan of plans) {
     const meal = mealMap.get(id)
     if (!meal) return null
     return {
-      mealId: meal.id,
+      meal: { connect: { id: meal.id } },
       name: meal.name || 'Meal',
       unitPrice: meal.price || 0,
-      deliveryEta: dateAssigned || new Date() ,
+      deliveryEta:new Date(dateAssigned).toISOString() ,
       quantity: 1,
       totalPrice: meal.price || 0,
     }
@@ -255,11 +256,11 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         const meal = mealMap.get(id)
         if (!meal) return null
         return {
-          mealId: meal.id,
+          meal: { connect: { id: meal.id } },
           name: meal.name!,
           unitPrice: meal.price || 0,
           quantity: 1,
-          deliveryEta: dateAssigned || new Date() ,
+          deliveryEta: new Date(dateAssigned).toISOString() || new Date().toISOString() ,
           totalPrice: meal.price || 0,
         }
       }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
