@@ -33,6 +33,8 @@ model User {
   plans         Plan[]
   reviews       Review[]
   transactions  Transaction[]
+  resetToken      String?
+  resetTokenExpiry DateTime?
 }
 
 /// Cart and items (one cart per user - userId is unique).

@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { equal } from 'assert';
-
+import crypto from "crypto";
+const nodemailer = require("nodemailer");
+const sgTransport = require("nodemailer-sendgrid");
 const router = Router();
 
 // Define request body types
@@ -25,6 +27,96 @@ interface LoginBody {
   email: string;
   password: string;
 }
+
+    const transporter = nodemailer.createTransport(
+      sgTransport({
+        apiKey: process.env.SENDGRID_API_KEY,
+      })
+    );
+
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate reset token + expiry
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 15); // 15 minutes
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry },
+    });
+
+    // Create reset link (frontend handles reset form)
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&id=${user.id}`;
+
+    // Send email with SendGrid
+    const msg = {
+      to: user.email,
+      from: process.env.EMAIL_USER!, // must be verified in SendGrid
+      subject: 'Password Reset Request',
+      text: `You requested a password reset. Reset here: ${resetUrl}`,
+      html: `
+        <p>Hello ${user.fullName},</p>
+        <p>You requested to reset your password. Click below to reset:</p>
+        <p><a href="${resetUrl}">Reset Password</a></p>
+        <p>This link expires in 15 minutes.</p>
+      `,
+    };
+
+    await sgTransport.sendMail(msg);
+
+    res.json({ success: true, message: 'Password reset link sent' });
+  } catch (err: any) {
+    console.error('❌ Forgot password error:', err);
+    res.status(500).json({ error: err.message || 'Failed to send reset link' });
+  }
+});
+
+// ===== RESET PASSWORD =====
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const { userId, token, newPassword } = req.body;
+
+  if (!userId || !token || !newPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (
+      !user ||
+      user.resetToken !== token ||
+      !user.resetTokenExpiry ||
+      user.resetTokenExpiry < new Date()
+    ) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword, resetToken: null, resetTokenExpiry: null },
+    });
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (err: any) {
+    console.error('❌ Reset password error:', err);
+    res.status(500).json({ error: err.message || 'Failed to reset password' });
+  }
+});
+
 
 // JWT secret (use env variable in production!)
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
