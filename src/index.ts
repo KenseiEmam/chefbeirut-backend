@@ -10,6 +10,7 @@ import mealRoutes from './routes/meal';
 import orderRoutes from './routes/order';
 import transactionRoutes from './routes/transaction';
 import storageRoutes from './routes/storage';
+import emailRoutes from './routes/email'
 import { authenticateApp } from "./auth.js"
 dotenv.config();
 
@@ -27,7 +28,7 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/media', storageRoutes);
-
+app.use("/email", emailRoutes)
 // ==================== SERVER ==================== 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
