@@ -24,7 +24,8 @@
     "hono": "^4.9.7",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
-    "nodemailer": "^7.0.6"
+    "nodemailer": "^7.0.6",
+    "nodemailer-sendgrid": "^1.0.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

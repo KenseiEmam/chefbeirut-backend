@@ -11,7 +11,7 @@ import orderRoutes from './routes/order';
 import transactionRoutes from './routes/transaction';
 import storageRoutes from './routes/storage';
 import emailRoutes from './routes/email'
-import { authenticateApp } from "./auth.js"
+import { authenticateApp } from "./auth"
 dotenv.config();
 
 const app = express();
