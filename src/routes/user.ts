@@ -74,7 +74,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       `,
     };
 
-    await sgTransport.sendMail(msg);
+    await transporter.sendMail(msg);
 
     res.json({ success: true, message: 'Password reset link sent' });
   } catch (err: any) {
