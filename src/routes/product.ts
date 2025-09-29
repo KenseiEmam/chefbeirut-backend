@@ -31,7 +31,7 @@ router.get("/:id", async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { reviews: true },
+      include: { reviews: true, Product_A:true },
     });
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json(product);
@@ -61,6 +61,7 @@ router.put("/:id", async (req, res) => {
     const product = await prisma.product.update({
       where: { id },
       data: updates,
+      include: { reviews: true, Product_A:true }
     });
     res.json(product);
   } catch (err) {
