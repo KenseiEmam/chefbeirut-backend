@@ -20,7 +20,10 @@ router.post("/send", async (req, res) => {
     );
 
     const mailOptions = {
-      from: process.env.EMAIL_USER, // must be a verified sender in SendGrid
+      from: {
+    email: 'admin@chefbeirut.ae', // Your verified sender email address
+    name: 'Chef Beirut'     // The name you want displayed
+  }, // must be a verified sender in SendGrid
       to: process.env.EMAIL_TO,     // your inbox where you want to receive messages
       replyTo: email,               // user’s email from the form
       subject: `New form submission from ${name}`,
