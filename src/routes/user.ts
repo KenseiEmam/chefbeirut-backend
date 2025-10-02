@@ -62,7 +62,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
     // Send email with SendGrid
     const msg = {
-      to: user.email,
+      to: user.email.toLowerCase(),
       from: process.env.EMAIL_USER!, // must be verified in SendGrid
       subject: 'Password Reset Request',
       text: `You requested a password reset. Reset here: ${resetUrl}`,
