@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import 'dotenv/config';
 import { randomUUID } from 'crypto';
 import { PrismaClient } from "@prisma/client";
-
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 const prisma = new PrismaClient();
 const router = express.Router();
 const S3_BUCKET = process.env.S3_BUCKET_NAME;
@@ -64,6 +64,35 @@ router.post('/save-metadata', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to run meta data save' })
   }
 })
+router.post('/delete-media', async (req, res) => {
+  try {
+    const { fileUrl } = req.body
+    if (!fileUrl) throw new Error('fileUrl required')
 
+    // Extract objectKey from URL (after bucket domain)
+    const objectKey = fileUrl.split(`.amazonaws.com/`)[1]
+    if (!objectKey) throw new Error('Invalid fileUrl')
 
+    // 1. Delete from S3
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: objectKey,
+    })
+    await s3.send(deleteCommand)
+
+    // 2. Delete metadata from DB
+    await prisma.s3File.deleteMany({
+      where: { objectKey },
+    })
+
+    console.log(`Deleted file: ${objectKey}`)
+    return res.json({ success: true, message: 'File deleted successfully' })
+  } catch (err: any) {
+    console.error('Delete Error:', err.message)
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'Metadata not found' })
+    }
+    res.status(500).json({ error: err.message || 'Failed to delete media' })
+  }
+})
 export default router;
