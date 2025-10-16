@@ -110,6 +110,8 @@ model Plan {
   estimatedPrice Float?
   type           String?
   noMeals        Int?
+  snack          Boolean?
+  noBreakfast    Boolean?
   noDays         Int?
   specifyDays    String[]  @default([])
   startDate      DateTime?

@@ -103,7 +103,7 @@ router.post('/orders-from-plans', async (req: Request, res: Response) => {
     
     // 1️⃣ Fetch all plans of this type with their users (for address)
     const plans = await prisma.plan.findMany({
-      where: { type },
+      where: { type , status:'active' },
       include: { user: true }, // 👈 grab the user and their address
     })
 
@@ -158,8 +158,12 @@ for (const plan of plans) {
   })
   if (existingOrder) continue
 
+  // Change number measured to factor in the optional snack!
+  let realNumber = plan.noMeals 
+    if(plan.snack && realNumber)
+      realNumber ++
   // 🔹 Preserve duplicates from the original request
-  const selectedMealIds = mealIds.slice(0, plan.noMeals+1)
+  const selectedMealIds = mealIds.slice(0, realNumber+1)
   
   const items = selectedMealIds
   .map((id) => {
@@ -231,11 +235,14 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
     if (!plan.userId) {
       return res.status(400).json({ error: `Plan "${planId}" is not linked to a user` })
     }
-
+    let realNumber = plan.noMeals 
+    if(plan.snack && realNumber)
+      realNumber ++
+      
     // 2️⃣ Validate meal count matches the plan
-    if (plan.noMeals !== mealIds.length - 1) {
+    if (realNumber && realNumber !== mealIds.length - 1) {
       return res.status(400).json({
-        error: `Plan requires ${plan.noMeals} meals, but ${mealIds.length} were provided`,
+        error: `Plan requires ${realNumber} meals, but ${mealIds.length} were provided`,
       })
     }
 
