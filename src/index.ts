@@ -12,10 +12,20 @@ import transactionRoutes from './routes/transaction';
 import storageRoutes from './routes/storage';
 import emailRoutes from './routes/email'
 import { authenticateApp } from "./auth"
+import stripeWebhookRoutes from "./routes/stripeWebhook"
+import stripeRoutes from "./routes/stripe"
+
 dotenv.config();
 
 const app = express();
 app.use(cors());
+// ⚠️ Stripe webhook MUST come before express.json()
+app.use(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookRoutes
+)
+
 app.use(express.json());
 app.use(authenticateApp)
 // ==================== API ROUTES ====================
@@ -26,6 +36,7 @@ app.use('/api/cart-items', cartItemRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
+app.use("/api/stripe", stripeRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/media', storageRoutes);
 app.use("/api/email", emailRoutes)
