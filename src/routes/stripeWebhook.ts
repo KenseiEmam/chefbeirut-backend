@@ -44,7 +44,7 @@ router.post("/", async (req, res) => {
       startDate: new Date(),
       expiryDate: new Date(
         Date.now() +
-          Number(session.metadata?.noDays ?? 7) * 24 * 60 * 60 * 1000
+          30 * 24 * 60 * 60 * 1000
       ),
       specifyDays,
       noBreakfast: session.metadata?.noBreakfast === "true",
