@@ -15,7 +15,6 @@ router.post("/checkout", async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-
       // ❌ no longer required, Stripe auto-detects
       // payment_method_types: ["card"],
 
@@ -25,10 +24,15 @@ router.post("/checkout", async (req, res) => {
             currency: "aed",
             product_data: {
               name: `Meal Plan (${planType})`,
+              description: `Your customized meal plan designed to help you ${planType} your current weight. This plan comes with ${noMeals} a day ${snack?' and a snack':''} for ${noDays} a week.${noBreakfast?'':' (Comes with no breakfats.)'}`,
+              images:['https://staging.chefbeirut.ae/assets/logo-eCOYQ_Cp.png'],
+              
             },
             unit_amount: price*100, // cents
+            
           },
           quantity: 1,
+          
         },
       ],
 
