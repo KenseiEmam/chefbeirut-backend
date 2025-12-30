@@ -5,7 +5,7 @@ import prisma from "../lib/prisma"
 const router = Router()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-router.post("/webhook", async (req, res) => {
+router.post("/", async (req, res) => {
   const sig = req.headers["stripe-signature"] as string
 
   let event: Stripe.Event
