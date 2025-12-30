@@ -87,7 +87,7 @@ router.post("/populate-week", async (_req, res) => {
         expiryDate: { gte: start },
       },
     })
-
+    
     let created = 0
 
     for (let i = 0; i < 7; i++) {
@@ -95,8 +95,7 @@ router.post("/populate-week", async (_req, res) => {
       date.setDate(start.getDate() + i)
 
       const day = date
-        .toLocaleDateString("en-US", { weekday: "short" })
-        .toLowerCase()
+        .toLocaleDateString("en-US", { weekday: "long" })
 
       const schedule = scheduleMap[day]
       if (!schedule) continue
@@ -137,7 +136,7 @@ router.post("/populate-week", async (_req, res) => {
             totalPrice: 0,
           })
         }
-
+        
         if (!items.length) continue
 
         await prisma.order.create({
