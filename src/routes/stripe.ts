@@ -17,7 +17,7 @@ router.post("/checkout", async (req, res) => {
       mode: "payment",
       // ❌ no longer required, Stripe auto-detects
       // payment_method_types: ["card"],
-
+      allow_promotion_codes:true,
       line_items: [
         {
           price_data: {
