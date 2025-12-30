@@ -18,6 +18,14 @@ router.post("/checkout", async (req, res) => {
       // ❌ no longer required, Stripe auto-detects
       // payment_method_types: ["card"],
       allow_promotion_codes:true,
+      branding_settings:{
+        display_name:"Chef Beirut",
+        background_color: "#227948",
+        logo: {
+          type:"url",
+          url:"https://staging.chefbeirut.ae/assets/logo-eCOYQ_Cp.png"
+        }
+      },
       line_items: [
         {
           price_data: {
