@@ -197,6 +197,15 @@ model Transaction {
   order     Order?   @relation(fields: [orderId], references: [id])
   user      User?    @relation(fields: [userId], references: [id])
 }
+model Schedule {
+  id        String   @id @default(uuid())
+  day       String   @unique // fri, sat, sun...
+  meals     String[] @default([]) // meal IDs (max 5 enforced in backend)
+  snackId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
 
 /// Orders and items. OrderItem can reference a Product or a Meal.
 ///   Order.driver links to User via the "DriverOrders" relation declared on User.

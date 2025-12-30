@@ -14,6 +14,7 @@ import emailRoutes from './routes/email'
 import { authenticateApp } from "./auth"
 import stripeWebhookRoutes from "./routes/stripeWebhook"
 import stripeRoutes from "./routes/stripe"
+import scheduleRoutes from "./routes/schedule"
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use("/api/stripe", stripeRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/media', storageRoutes);
 app.use("/api/email", emailRoutes)
+app.use("/api/schedule", scheduleRoutes)
 // ==================== SERVER ==================== 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
