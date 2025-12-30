@@ -19,7 +19,7 @@ router.post("/checkout", async (req, res) => {
       // payment_method_types: ["card"],
       allow_promotion_codes:true,
       branding_settings:{
-        display_name:"Chef Beirut",
+        display_name:"Chef Beirut LLC",
         background_color: "#227948",
         logo: {
           type:"url",
