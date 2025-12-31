@@ -78,7 +78,7 @@ router.post("/populate-week", async (_req, res) => {
 
     const schedules = await prisma.schedule.findMany()
     const scheduleMap = Object.fromEntries(
-      schedules.map((s:any) => [s.day, s])
+      schedules.map((s: any) => [s.day, s])
     )
 
     const plans = await prisma.plan.findMany({
@@ -86,6 +86,7 @@ router.post("/populate-week", async (_req, res) => {
         status: "active",
         expiryDate: { gte: start },
       },
+      include: { user: true },
     })
     
     let created = 0
@@ -94,39 +95,74 @@ router.post("/populate-week", async (_req, res) => {
       const date = new Date(start)
       date.setDate(start.getDate() + i)
 
-      const day = date
-        .toLocaleDateString("en-US", { weekday: "long" })
-
+      const day = date.toLocaleDateString("en-US", { weekday: "long" })
       const schedule = scheduleMap[day]
       if (!schedule) continue
-
+      
       for (const plan of plans) {
         if (!plan.userId) continue
-        if (!plan.specifyDays.includes(day)) continue
+        
+        if (!plan.specifyDays?.includes(day)) continue
+        
         if (plan.expiryDate && plan.expiryDate < date) continue
-
-        // prevent duplicate orders for same day
+        if (!plan.user?.address) continue
+        
+        // prevent duplicates
         const exists = await prisma.order.findFirst({
           where: {
             userId: plan.userId,
             deliveryEta: date.toISOString(),
           },
         })
-
         if (exists) continue
+        
+        // 🔢 meal count (snack-aware)
+        let realNumber = plan.noMeals || 0
+        if (plan.snack) realNumber++
 
+        // 🧠 macro logic snapshot
+        let proteinGoal = 200
+        let carbGoal = 200
+
+        switch (plan.type) {
+          case "custom":
+            proteinGoal = plan.customProtein || 200
+            carbGoal = plan.customCarb || 200
+            break
+          case "gain":
+            proteinGoal = 250
+            carbGoal = 250
+            break
+          case "loss":
+            proteinGoal = 150
+            carbGoal = 150
+            break
+        }
+
+        const nutritionProfile = {
+          planType: plan.type,
+          proteinTarget: proteinGoal,
+          carbTarget: carbGoal,
+          mealsPerDay: realNumber,
+          snack: plan.snack,
+        }
+
+        // 🍽 meals
         const mealIds = schedule.meals.slice(0, plan.noMeals || 0)
 
-        const items = [
-          ...mealIds.map((mealId:any) => ({
-            mealId,
-            name: "Meal",
-            unitPrice: 0,
-            quantity: 1,
-            totalPrice: 0,
-          })),
-        ]
+        const items = mealIds.map((mealId: string, index: number) => ({
+          mealId,
+          name: "Meal",
+          unitPrice: 0,
+          quantity: 1,
+          totalPrice: 0,
+          nutritionContext: {
+            mealIndex: index,
+            mealsPerDay: realNumber,
+          },
+        }))
 
+        // 🍎 snack
         if (plan.snack && schedule.snackId) {
           items.push({
             mealId: schedule.snackId,
@@ -134,17 +170,24 @@ router.post("/populate-week", async (_req, res) => {
             unitPrice: 0,
             quantity: 1,
             totalPrice: 0,
+            nutritionContext: {
+              mealIndex: items.length,
+              mealsPerDay: realNumber,
+            },
           })
         }
-        
+
         if (!items.length) continue
 
         await prisma.order.create({
           data: {
             userId: plan.userId,
+            planType: plan.type,
+            nutritionProfile,
             status: "PREPARING",
             subtotal: 0,
             total: 0,
+            deliveryAddress: plan.user.address,
             deliveryEta: date.toISOString(),
             items: { create: items },
           },

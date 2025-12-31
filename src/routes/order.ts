@@ -48,9 +48,9 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
           if (!m) throw new Error(`Meal ${it.mealId} not found`)
           return {
             name: m.name,
-            unitPrice: m.price || 0,
+            unitPrice: 0,
             quantity: it.quantity,
-            totalPrice: ((m.price || 0) * it.quantity),
+            totalPrice: 0,
             mealId: m.id,
           }
         } else {
@@ -172,9 +172,9 @@ for (const plan of plans) {
     return {
       meal: { connect: { id: meal.id } },
       name: meal.name || 'Meal',
-      unitPrice: meal.price || 0,
+      unitPrice: 0,
       quantity: 1,
-      totalPrice: meal.price || 0,
+      totalPrice:  0,
     }
   })
   .filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
@@ -183,19 +183,57 @@ for (const plan of plans) {
   if (!plan.user?.address) continue
 
   const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+  let proteinGoal= 0
+  let carbGoal= 0
+  switch(plan.type){
+    case "custom":
+      proteinGoal = plan.customProtein || 200
+      carbGoal = plan.customCarb || 200
+      break;
+    case "gain":
+      proteinGoal = 250
+      carbGoal = 250
+      break;
+    case "loss":
+      proteinGoal = 150
+      carbGoal = 150
+      break;
+    default:
+      proteinGoal = 200
+      carbGoal = 200
+      break;
+  }
+    
 
-  const order = await prisma.order.create({
-    data: {
-      userId: plan.userId,
-      subtotal,
-      total: subtotal,
-      status: "PREPARING",
-      deliveryAddress: plan.user.address,
-      deliveryEta:new Date(dateAssigned).toISOString() ,
-      items: { create: items },
+  const nutritionProfile = {
+  planType: plan.type,
+    proteinTarget: proteinGoal,
+    carbTarget: carbGoal,
+    mealsPerDay: plan.noMeals,
+    snack: plan.snack,
+  }
+
+ const order = await prisma.order.create({
+  data: {
+    userId: plan.userId,
+    planType: plan.type,
+    nutritionProfile,
+    subtotal,
+    total: subtotal,
+    status: "PREPARING",
+    deliveryAddress: plan.user.address,
+    deliveryEta: new Date(dateAssigned).toISOString(),
+    items: {
+      create: items.map((item, index) => ({
+        ...item,
+        nutritionContext: {
+          mealIndex: index,
+          mealsPerDay: realNumber,
+        },
+      })),
     },
-    include: { items: true },
-  })
+  },
+})
 
   createdOrders.push(order)
 }
@@ -265,9 +303,9 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         return {
           meal: { connect: { id: meal.id } },
           name: meal.name!,
-          unitPrice: meal.price || 0,
+          unitPrice:  0,
           quantity: 1,
-          totalPrice: meal.price || 0,
+          totalPrice:  0,
         }
       }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
 
@@ -275,19 +313,60 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
     if (!plan.user?.address) throw "User needs a delivery address"
+    let carbGoal = 0 
+    let proteinGoal = 0
     // 5️⃣ Create order
+     switch(plan.type){
+    case "custom":
+      proteinGoal = plan.customProtein || 200
+      carbGoal = plan.customCarb || 200
+      break;
+    case "gain":
+      proteinGoal = 250
+      carbGoal = 250
+      break;
+    case "loss":
+      proteinGoal = 150
+      carbGoal = 150
+      break;
+    default:
+      proteinGoal = 200
+      carbGoal = 200
+      break;
+  }
+    
+
+  const nutritionProfile = {
+  planType: plan.type,
+    proteinTarget: proteinGoal,
+    carbTarget: carbGoal,
+    mealsPerDay: realNumber,
+    snack: plan.snack,
+  }
+
+ 
     const order = await prisma.order.create({
-      data: {
-        userId: plan.userId,
-        subtotal,
-        total: subtotal,
-        status: "PREPARING",
-        deliveryAddress: plan.user.address ,
-        deliveryEta: new Date(dateAssigned).toISOString() || new Date().toISOString() , // 👈 attach user address
-        items: { create: items },
-      },
-      include: { items: true },
-    })
+  data: {
+    userId: plan.userId,
+    planType: plan.type,
+    nutritionProfile,
+    subtotal,
+    total: subtotal,
+    status: "PREPARING",
+    deliveryAddress: plan.user.address,
+    deliveryEta: new Date(dateAssigned).toISOString(),
+    items: {
+      create: items.map((item, index) => ({
+        ...item,
+        nutritionContext: {
+          mealIndex: index,
+          mealsPerDay: realNumber,
+        },
+      })),
+    },
+  },
+})
+
 
     res.status(201).json(order)
   } catch (err: any) {

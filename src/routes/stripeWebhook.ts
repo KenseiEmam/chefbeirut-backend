@@ -36,28 +36,65 @@ async function populateRemainingWeekOrders(plan: any) {
     });
     if (existingOrder) continue;
 
-    const daySchedule = schedule.find((s:any) => s.day === dayName);
+    const daySchedule = schedule.find((s: any) => s.day === dayName);
     if (!daySchedule) continue;
 
+    // Determine real number of meals (including snack)
+    let realNumber = plan.noMeals || 0;
+    if (plan.snack) realNumber++;
+
+    // Determine protein/carb goals
+    let proteinGoal = 200;
+    let carbGoal = 200;
+    switch (plan.type) {
+      case "custom":
+        proteinGoal = plan.customProtein || 200;
+        carbGoal = plan.customCarb || 200;
+        break;
+      case "gain":
+        proteinGoal = 250;
+        carbGoal = 250;
+        break;
+      case "loss":
+        proteinGoal = 150;
+        carbGoal = 150;
+        break;
+    }
+
+    const nutritionProfile = {
+      planType: plan.type,
+      proteinTarget: proteinGoal,
+      carbTarget: carbGoal,
+      mealsPerDay: realNumber,
+      snack: plan.snack,
+    };
+
+    // Collect meal items
     const meals = daySchedule.meals.slice(0, plan.noMeals || 0);
     if (plan.snack && daySchedule.snackId) meals.push(daySchedule.snackId);
 
     if (!meals.length) continue;
 
-    const items = meals.map((mealId: string) => ({
+    const items = meals.map((mealId: string, index: number) => ({
       meal: { connect: { id: mealId } },
-      name: '', // optional: fetch meal name
-      unitPrice: 0, // optional: fetch meal price
+      name: "", // optional: fetch meal name if needed
+      unitPrice: 0,
       quantity: 1,
       totalPrice: 0,
+      nutritionContext: {
+        mealIndex: index,
+        mealsPerDay: realNumber,
+      },
     }));
 
     await prisma.order.create({
       data: {
         userId: plan.userId,
+        planType: plan.type,
+        nutritionProfile,
+        status: 'PREPARING',
         subtotal: 0,
         total: 0,
-        status: 'PREPARING',
         deliveryAddress: plan.user.address,
         deliveryEta: new Date().toISOString(),
         items: { create: items },
@@ -65,6 +102,7 @@ async function populateRemainingWeekOrders(plan: any) {
     });
   }
 }
+
 
 router.post("/", async (req, res) => {
   const sig = req.headers["stripe-signature"] as string

@@ -110,6 +110,8 @@ model Plan {
   estimatedPrice Float?
   type           String?
   noMeals        Int?
+  customProtein  Int?
+  customCarb     Int?
   snack          Boolean?
   noBreakfast    Boolean?
   noDays         Int?
@@ -128,14 +130,14 @@ model Meal {
   description String?
   type        String?
   available   Boolean     @default(true)
-  stock       Int?
+  stock       Int?        @ignore
   ingredients Json?
-  macros      Json?
+  macros      Json?       @ignore
   photo       String?
   category    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  price       Float?      @default(0)
+  price       Float?      @ignore
   orderItems  OrderItem[]
 }
 
@@ -160,6 +162,8 @@ model Order {
   user            User          @relation(fields: [userId], references: [id])
   items           OrderItem[]
   transactions    Transaction[]
+  nutritionProfile Json?
+  planType         String?
 }
 
 /// OrderItem stores a snapshot of name/price at time of purchase.
@@ -178,6 +182,7 @@ model OrderItem {
   meal       Meal?    @relation(fields: [mealId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id])
   product    Product? @relation(fields: [productId], references: [id])
+  nutritionContext Json?
 }
 
 /// Transactions (payments / receipts). Many transactions can reference one order;

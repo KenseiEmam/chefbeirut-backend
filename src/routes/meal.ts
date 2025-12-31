@@ -3,29 +3,47 @@ import prisma from '../lib/prisma'
 
 const router = Router()
 
+/**
+ * Meals are NON-TRANSACTIONAL.
+ * No price, no macros, no stock.
+ * Used only for scheduling & order population.
+ */
 interface MealBody {
   name?: string
   description?: string
-  price: number
+  type?: string
   available?: boolean
-  stock?: number
   ingredients?: any // Json
-  macros?: any // Json
   photo?: string
   category?: string
+}
+
+// helper to whitelist fields (very important)
+function pickMealData(body: MealBody) {
+  return {
+    name: body.name,
+    description: body.description,
+    type: body.type,
+    available: body.available ?? true,
+    ingredients: body.ingredients,
+    photo: body.photo,
+    category: body.category,
+  }
 }
 
 // CREATE MEAL
 router.post('/', async (req: Request<{}, {}, MealBody>, res: Response) => {
   try {
-    const meal = await prisma.meal.create({ data: req.body })
+    const meal = await prisma.meal.create({
+      data: pickMealData(req.body),
+    })
     res.status(201).json(meal)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create meal' })
   }
 })
 
-// GET ALL MEALS (with optional filters: available, category, search)
+// GET ALL MEALS (optional filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { available, category, q } = req.query
@@ -39,6 +57,7 @@ router.get('/', async (req: Request, res: Response) => {
       where,
       orderBy: { createdAt: 'desc' },
     })
+
     res.json(meals)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch meals' })
@@ -63,11 +82,12 @@ router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const meal = await prisma.meal.update({
       where: { id },
-      data: req.body,
+      data: pickMealData(req.body),
     })
     res.json(meal)
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Meal not found' })
+    if (err.code === 'P2025')
+      return res.status(404).json({ error: 'Meal not found' })
     res.status(500).json({ error: err.message || 'Failed to update meal' })
   }
 })
@@ -79,7 +99,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await prisma.meal.delete({ where: { id } })
     res.json({ message: 'Meal deleted' })
   } catch (err: any) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Meal not found' })
+    if (err.code === 'P2025')
+      return res.status(404).json({ error: 'Meal not found' })
     res.status(500).json({ error: err.message || 'Failed to delete meal' })
   }
 })
