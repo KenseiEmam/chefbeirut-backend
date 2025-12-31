@@ -12,11 +12,22 @@ function getRemainingWeekdays(fromDate: Date = new Date()) {
 }
 
 async function populateRemainingWeekOrders(plan: any) {
-  if (!plan.userId) return;
-  const today = new Date();
-  const remainingDays = getRemainingWeekdays(today);
+    if (!plan.userId) return;
 
-  const schedule = await prisma.schedule.findMany(); // 7 rows
+    const user = await prisma.user.findUnique({
+      where: { id: plan.userId },
+      select: { address: true },
+    });
+
+    if (!user?.address) {
+      console.log("No address found for user");
+      return;
+    }
+
+    const today = new Date();
+    const remainingDays = getRemainingWeekdays(today);
+    const schedule = await prisma.schedule.findMany();
+
 
   for (const dayName of remainingDays) {
     if (plan.specifyDays && !plan.specifyDays.includes(dayName)) continue;
@@ -95,7 +106,7 @@ async function populateRemainingWeekOrders(plan: any) {
         status: 'PREPARING',
         subtotal: 0,
         total: 0,
-        deliveryAddress: plan.user.address,
+        deliveryAddress: user.address,
         deliveryEta: new Date().toISOString(),
         items: { create: items },
       },
