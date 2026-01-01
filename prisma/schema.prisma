@@ -33,6 +33,7 @@ model User {
   plans         Plan[]
   reviews       Review[]
   transactions  Transaction[]
+  requests      PlanRequest[]
   resetToken      String?
   resetTokenExpiry DateTime?
 }
@@ -120,6 +121,7 @@ model Plan {
   expiryDate     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  requests       PlanRequest[]
   user           User?     @relation(fields: [userId], references: [id])
 }
 
@@ -212,6 +214,40 @@ model Schedule {
 
 }
 
+model PlanRequest {
+  id            String   @id @default(uuid())
+
+  userId        String
+  planId        String
+
+  type          PlanRequestType
+  status        PlanRequestStatus @default(PENDING)
+
+  /** User-provided reason (required for cancellation) */
+  reason        String?
+
+  /** Requested changes (JSON diff, flexible) */
+  requestedData Json?
+
+  /** Admin notes / resolution context */
+  adminNotes    String?
+
+  /** Stripe-related (only for cancellation/refund) */
+  refundAmount  Float?
+  refundedAt    DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id])
+  plan          Plan     @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+}
+
+
 /// Orders and items. OrderItem can reference a Product or a Meal.
 ///   Order.driver links to User via the "DriverOrders" relation declared on User.
 enum OrderStatus {
@@ -228,5 +264,17 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  REFUNDED
+}
+
+enum PlanRequestType {
+  PLAN_CHANGE
+  CANCELLATION
+}
+
+enum PlanRequestStatus {
+  PENDING
+  ACCEPTED
+  DENIED
   REFUNDED
 }
