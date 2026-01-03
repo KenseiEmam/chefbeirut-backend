@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import prisma from '../lib/prisma'
-
+import { sendEmail } from '../services/mailer'
 const router = Router()
 
 interface OrderItemInput {
@@ -478,8 +478,46 @@ router.patch('/:id/assign-driver', async (req: Request, res: Response) => {
     const order = await prisma.order.update({
       where: { id },
       data: { driverId, status: 'EN_ROUTE' }, // set next status as appropriate
-      include: { driver: true },
+      include: { driver: true, user:true },
     })
+   let address = 'None Provided'
+
+if (order.user?.address) {
+  try {
+    const addr =
+      typeof order.user.address === 'string'
+        ? JSON.parse(order.user.address)
+        : order.user.address
+
+    if (addr?.address) {
+      address = addr.address
+    }
+     if (addr?.specificAddress) {
+      address = address + " : " + addr.specificAddress
+    }
+  } catch {
+    // silently fail → keep "None Provided"
+  }
+}
+
+    let phone = 'None Provided'
+    if(order.user.phone)
+    {
+      phone = order.user.phone
+    }
+     if(order.driver && order.user )
+            await sendEmail({
+                  to: order.driver.email,
+                  subject: 'We have populated your orders!',
+                  html: `
+                    <p>Hi ${order.driver.fullName},</p>
+                    <p>You have been assigned as a driver to Order:<strong>${order.id}</strong>,for ${order.user.fullName}.</p>
+                    <p>Delivering on: ${order.deliveryEta}. Please arrive an hour earlier!</p>
+                    <p>The order is to be delivered to:${address}.</p>
+                    <p>Customer phone: ${phone}}</p>
+                    <p>— Chef Beirut</p>
+                  `,
+              })
     res.json(order)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to assign driver' })

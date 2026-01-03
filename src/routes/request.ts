@@ -2,7 +2,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import Stripe from "stripe"
-
+import { sendEmail } from '../services/mailer'
 const router = Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -48,8 +48,34 @@ router.post("/", async (req, res) => {
         reason,
         requestedData,
       },
+      include:{
+        user:true
+      }
     })
-    
+    if(request.user)
+    await sendEmail({
+          to: request.user.email,
+          subject: 'We have recieved your request!',
+          html: `
+            <p>Hi ${request.user.fullName},</p>
+            <p>Your <strong>${request.type}</strong> request for Plan of Id: <strong>${request.planId}</strong> has been recieved.</p>
+            <p>Our staff will review it shortly and be in contact whenever possible!</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
+
+    await sendEmail({
+          to: 'admin@chefbeirut.ae',
+          subject: `New ${request.type} Request`,
+          html: `
+            <p>Hi Chef,</p>
+            <p>A <strong>${request.type}</strong> request for Plan of Id: <strong>${request.planId}</strong> has been issued.</p>
+            <p>Request Reason: ${request.reason} </p>
+            <br>
+            <a href="${process.env.BASE_URL}/dashboard/requests/${request.id}}">Click here to view the request!</a>
+            <p>— Chef Beirut</p>
+          `,
+      })
     res.json(request)
   } catch (err) {
     console.error(err)
@@ -112,6 +138,7 @@ router.post("/:id/accept", async (req, res) => {
 
     const request = await prisma.planRequest.findUnique({
       where: { id },
+      include:{user:true}
     })
 
     if (!request || request.status !== "PENDING") {
@@ -138,6 +165,18 @@ router.post("/:id/accept", async (req, res) => {
         }
       }),
       ])
+       if(request.user)
+    await sendEmail({
+          to: request.user.email,
+          subject: 'Your Changes were accepted!',
+          html: `
+            <p>Hi ${request.user.fullName},</p>
+            <p>We have applied your requested changes for Plan of Id: <strong>${request.planId}</strong>.</p>
+            <p>Check your dashboard to review these new changes!</p>
+            <p>Happy to have served you at Chef Beirut!</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
     } else {
       // Cancellation without refund
       await prisma.$transaction([
@@ -150,8 +189,20 @@ router.post("/:id/accept", async (req, res) => {
           data: { status: "ACCEPTED", adminNotes },
         }),
       ])
+      if(request.user)
+    await sendEmail({
+          to: request.user.email,
+          subject: 'Your Plan was Cancelled!',
+          html: `
+            <p>Hi ${request.user.fullName},</p>
+            <p>Your Plan of Id: <strong>${request.planId}</strong> was cancelled.</p>
+            <p>After great consideration from our staff and reviewing the conversation, we unfortunately can not refund you at the time being.</p>
+            <p>Hope we can serve you better in the future!</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
     }
-
+    
     res.json({ success: true })
   } catch (err) {
     console.error(err)
@@ -164,14 +215,26 @@ router.post("/:id/deny", async (req, res) => {
     const { id } = req.params
     const { adminNotes } = req.body
 
-    await prisma.planRequest.update({
+    const request = await prisma.planRequest.update({
       where: { id },
       data: {
         status: "DENIED",
         adminNotes,
       },
+      include:{user:true,plan:true}
     })
-
+     if(request.user)
+    await sendEmail({
+          to: request.user.email,
+          subject: 'Your request has been denied!',
+          html: `
+            <p>Hi ${request.user.fullName},</p>
+            <p>Your <strong>${request.planId}</strong> for Plan of Id: <strong>${request.planId}</strong> was denied.</p>
+            <p>After great consideration from our staff and reviewing the conversation, we unfortunately can not accept the request at the time being.</p>
+            <p>Hope we can serve you better in the future!</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: "Failed to deny request" })
@@ -186,7 +249,7 @@ router.post("/:id/refund", async (req, res) => {
     const { adminNotes } = req.body
     const request = await prisma.planRequest.findUnique({
       where: { id },
-      include: { user: true },
+      include: { user: true, plan:true },
     })
 
     if (!request || request.type !== "CANCELLATION") {
@@ -248,11 +311,26 @@ router.post("/:id/refund", async (req, res) => {
     status: "refunded",
     refunded:true
   }})
+
+  
+  if(request.user)
+    await sendEmail({
+          to: request.user.email,
+          subject: 'You are being refunded!',
+          html: `
+            <p>Hi ${request.user.fullName},</p>
+            <p>Your  Plan of Id: <strong>${request.planId}</strong> has been cancelled and a refund is on its it's way.</p>
+            <p>After great consideration from our staff and reviewing the conversation, we have decided to refund you from our end! Please await stripe processing to complete this refund.</p>
+            <p>Hope we can serve you better in the future!</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
     res.json({ success: true })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: "Refund failed" })
   }
+
 })
 
 

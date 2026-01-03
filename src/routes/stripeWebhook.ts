@@ -1,7 +1,7 @@
 import { Router } from "express"
 import Stripe from "stripe"
 import prisma from "../lib/prisma"
-
+import { sendEmail } from '../services/mailer'
 const router = Router()
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -154,9 +154,11 @@ router.post("/", async (req, res) => {
         specifyDays,
         noBreakfast: session.metadata?.noBreakfast === "true",
         snack: session.metadata?.snack === "true",
-      },
+      },include:{
+        user:true
+      }
     })
-
+    
     // Populate remaining week orders
     await populateRemainingWeekOrders(plan)
 
@@ -174,6 +176,17 @@ router.post("/", async (req, res) => {
         },
       },
     })
+    if(plan.user)
+    await sendEmail({
+          to: plan.user.email,
+          subject: 'Welcome to the Chef Beirut Experience!',
+          html: `
+            <p>Hi ${plan.user.fullName},</p>
+            <p>Your <strong>${plan.type}</strong> plan has been generated.</p>
+            <p>Your week's orders should be generated soon, check your dashboard and contact us regarding any problems.</p>
+            <p>— Chef Beirut</p>
+          `,
+      })
   }
 
   res.json({ received: true })

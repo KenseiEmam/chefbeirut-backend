@@ -1,6 +1,6 @@
 import { Router } from "express"
 import prisma from "../lib/prisma"
-
+import { sendEmail } from '../services/mailer'
 const router = Router()
 
 /**
@@ -192,11 +192,21 @@ router.post("/populate-week", async (_req, res) => {
             items: { create: items },
           },
         })
-
+        if(plan.user)
+            await sendEmail({
+                  to: plan.user.email,
+                  subject: 'We have populated your orders!',
+                  html: `
+                    <p>Hi ${plan.user.fullName},</p>
+                    <p>Your <strong>${plan.type}</strong> plan has ${items.length} new orders.</p>
+                    <p>Check your dashboard and contact us regarding any problems.</p>
+                    <p>— Chef Beirut</p>
+                  `,
+              })
         created++
       }
     }
-
+    
     res.json({ success: true, created })
   } catch (err) {
     console.error(err)

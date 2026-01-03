@@ -16,6 +16,7 @@ import stripeWebhookRoutes from "./routes/stripeWebhook"
 import stripeRoutes from "./routes/stripe"
 import scheduleRoutes from "./routes/schedule"
 import requestRoutes from "./routes/request"
+import './cron'
 
 dotenv.config();
 
