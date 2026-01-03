@@ -62,11 +62,12 @@ router.post("/", async (req, res) => {
 // ===== FETCH ALL REQUESTS FOR ADMINS =====
 router.get("/", async (req, res) => {
   try {
-    const { userId, page = '1', pageSize = '10' } = req.query
+    const { userId, status, page = '1', pageSize = '10' } = req.query
     const where: any = {}
     const pageNum = parseInt(page as string, 10);
     const size = parseInt(pageSize as string, 10);
     if (userId) where.userId = String(userId)
+    if (status) where.status = String(status)
    
 
     const requests = await prisma.planRequest.findMany({
@@ -127,6 +128,15 @@ router.post("/:id/accept", async (req, res) => {
           where: { id },
           data: { status: "ACCEPTED", adminNotes },
         }),
+        
+      prisma.order.updateMany({
+        where: {userId: request.userId, status:"PREPARING" },
+        data:{
+          status:"CANCELLED",
+          cancelReason: "Plan cancelled and refunded!",
+          cancelDate:new Date
+        }
+      }),
       ])
     } else {
       // Cancellation without refund
@@ -173,7 +183,7 @@ router.post("/:id/deny", async (req, res) => {
 router.post("/:id/refund", async (req, res) => {
   try {
     const { id } = req.params
-
+    const { adminNotes } = req.body
     const request = await prisma.planRequest.findUnique({
       where: { id },
       include: { user: true },
@@ -216,10 +226,19 @@ router.post("/:id/refund", async (req, res) => {
       prisma.planRequest.update({
         where: { id },
         data: {
+          adminNotes,
           status: "REFUNDED",
           refundedAt: new Date(),
         },
       
+      }),
+      prisma.order.updateMany({
+        where: {userId: request.userId, status:"PREPARING" },
+        data:{
+          status:"CANCELLED",
+          cancelReason: "Plan cancelled and refunded!",
+          cancelDate:new Date
+        }
       }),
     ])
 
@@ -227,6 +246,7 @@ router.post("/:id/refund", async (req, res) => {
   where: { id: transaction.id },
   data: {
     status: "refunded",
+    refunded:true
   }})
     res.json({ success: true })
   } catch (err) {

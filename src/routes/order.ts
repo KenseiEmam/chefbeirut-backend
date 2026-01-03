@@ -21,6 +21,7 @@ interface OrderBody {
   cancelDate?:Date
 }
 
+
 // CREATE ORDER (creates order + items + optional transactions later)
 router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
   try {
@@ -380,13 +381,21 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     
  
-    const { userId, driverId, status, page = '1', pageSize = '10', name, today } = req.query;
+    const { userId, driverId, status, upcoming, page = '1', pageSize = '10', name, today } = req.query;
 const pageNum = parseInt(page as string, 10);
 const size = parseInt(pageSize as string, 10);
 
 const where: any = {};
-
+const now = new Date()
 if (userId) where.userId = String(userId);
+if (upcoming) {
+  const start = now.toISOString()
+  
+  where.deliveryEta = {
+    gte: start,
+  }
+}
+
 if (driverId) where.driverId = String(driverId);
 if (name) where.user = { fullName: { contains: String(name), mode: 'insensitive' } };
 

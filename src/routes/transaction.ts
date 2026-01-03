@@ -31,20 +31,53 @@ router.post('/', async (req: Request<{}, {}, TransactionBody>, res: Response) =>
   }
 })
 
-// GET ALL TRANSACTIONS (filter by user or order)
+// GET ALL TRANSACTIONS (filter by user, order, date range)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { userId, orderId } = req.query
+    const { userId, orderId, range } = req.query
     const where: any = {}
+
     if (userId) where.userId = String(userId)
     if (orderId) where.orderId = String(orderId)
 
-    const txs = await prisma.transaction.findMany({ where, orderBy: { createdAt: 'desc' } })
+    // 📅 Date range filters
+    const now = new Date()
+
+    if (range === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      where.createdAt = { gte: start }
+    }
+
+    if (range === 'last_3_months') {
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+
+      where.createdAt = { gte: start }
+    }
+
+    if (range === 'past_year') {
+      const start = new Date()
+      start.setFullYear(start.getFullYear() - 1)
+      where.createdAt = { gte: start }
+    }
+
+    const txs = await prisma.transaction.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: true,
+        order: true,
+      },
+    })
+
     res.json(txs)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch transactions' })
   }
 })
+
 
 // GET SINGLE TRANSACTION
 router.get('/:id', async (req: Request, res: Response) => {
