@@ -48,12 +48,30 @@ router.post('/', async (req: Request<{}, {}, MealBody>, res: Response) => {
 // GET ALL MEALS (optional filters)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { available, category, q } = req.query
+    const { available, category, q, tags } = req.query
     const where: any = {}
 
-    if (available !== undefined) where.available = available === 'true'
-    if (category) where.category = String(category)
-    if (q) where.name = { contains: String(q), mode: 'insensitive' }
+    if (available !== undefined) {
+      where.available = available === 'true'
+    }
+
+    if (category) {
+      where.category = String(category)
+    }
+
+    if (q) {
+      where.name = { contains: String(q), mode: 'insensitive' }
+    }
+
+    if (tags) {
+      const tagArray = Array.isArray(tags)
+        ? tags.map(String)
+        : String(tags).split(',')
+
+      where.tags = {
+        hasSome: tagArray,
+      }
+    }
 
     const meals = await prisma.meal.findMany({
       where,
@@ -65,6 +83,7 @@ router.get('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: err.message || 'Failed to fetch meals' })
   }
 })
+
 
 // GET SINGLE MEAL
 router.get('/:id', async (req: Request, res: Response) => {
