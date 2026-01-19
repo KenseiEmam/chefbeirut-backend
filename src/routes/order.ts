@@ -34,17 +34,7 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
     // Calculate subtotal from current prices
     const itemRecords = await Promise.all(
       items.map(async (it) => {
-        if (it.productId) {
-          const p = await prisma.product.findUnique({ where: { id: it.productId } })
-          if (!p) throw new Error(`Product ${it.productId} not found`)
-          return {
-            name: p.name,
-            unitPrice: p.price,
-            quantity: it.quantity,
-            totalPrice: (p.price * it.quantity),
-            productId: p.id,
-          }
-        } else if (it.mealId) {
+        if (it.mealId) {
           const m = await prisma.meal.findUnique({ where: { id: it.mealId } })
           if (!m) throw new Error(`Meal ${it.mealId} not found`)
           return {
@@ -55,7 +45,7 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
             mealId: m.id,
           }
         } else {
-          throw new Error('Each item must have productId or mealId')
+          throw new Error('Each item must have mealId')
         }
       })
     )
@@ -422,7 +412,7 @@ if (!status) {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        items: { include: { product: true, meal: true } },
+        items: { include: {  meal: true } },
         user: true,
         driver: true,
         transactions: true,
@@ -445,7 +435,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: true, meal: true } }, user: true, driver: true, transactions: true },
+      include: { items: { include: { meal: true } }, user: true, driver: true, transactions: true },
     })
     if (!order) return res.status(404).json({ error: 'Order not found' })
     res.json(order)

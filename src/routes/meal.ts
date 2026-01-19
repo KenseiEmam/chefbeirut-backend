@@ -13,6 +13,7 @@ interface MealBody {
   description?: string
   type?: string
   available?: boolean
+  tags?:string[]
   ingredients?: any // Json
   photo?: string
   category?: string
@@ -28,6 +29,7 @@ function pickMealData(body: MealBody) {
     ingredients: body.ingredients,
     photo: body.photo,
     category: body.category,
+    tags: body.tags
   }
 }
 
