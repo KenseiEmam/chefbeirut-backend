@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import prisma from '../lib/prisma'
-
+import { sendEmail } from '../services/mailer'
 const router = Router()
 
 interface OrderItemInput {
@@ -20,6 +20,7 @@ interface OrderBody {
   cancelReason?: string
   cancelDate?:Date
 }
+
 
 // CREATE ORDER (creates order + items + optional transactions later)
 router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
@@ -48,9 +49,9 @@ router.post('/', async (req: Request<{}, {}, OrderBody>, res: Response) => {
           if (!m) throw new Error(`Meal ${it.mealId} not found`)
           return {
             name: m.name,
-            unitPrice: m.price || 0,
+            unitPrice: 0,
             quantity: it.quantity,
-            totalPrice: ((m.price || 0) * it.quantity),
+            totalPrice: 0,
             mealId: m.id,
           }
         } else {
@@ -172,9 +173,9 @@ for (const plan of plans) {
     return {
       meal: { connect: { id: meal.id } },
       name: meal.name || 'Meal',
-      unitPrice: meal.price || 0,
+      unitPrice: 0,
       quantity: 1,
-      totalPrice: meal.price || 0,
+      totalPrice:  0,
     }
   })
   .filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
@@ -183,19 +184,57 @@ for (const plan of plans) {
   if (!plan.user?.address) continue
 
   const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+  let proteinGoal= 0
+  let carbGoal= 0
+  switch(plan.type){
+    case "custom":
+      proteinGoal = plan.customProtein || 200
+      carbGoal = plan.customCarb || 200
+      break;
+    case "gain":
+      proteinGoal = 250
+      carbGoal = 250
+      break;
+    case "loss":
+      proteinGoal = 150
+      carbGoal = 150
+      break;
+    default:
+      proteinGoal = 200
+      carbGoal = 200
+      break;
+  }
+    
 
-  const order = await prisma.order.create({
-    data: {
-      userId: plan.userId,
-      subtotal,
-      total: subtotal,
-      status: "PREPARING",
-      deliveryAddress: plan.user.address,
-      deliveryEta:new Date(dateAssigned).toISOString() ,
-      items: { create: items },
+  const nutritionProfile = {
+  planType: plan.type,
+    proteinTarget: proteinGoal,
+    carbTarget: carbGoal,
+    mealsPerDay: plan.noMeals,
+    snack: plan.snack,
+  }
+
+ const order = await prisma.order.create({
+  data: {
+    userId: plan.userId,
+    planType: plan.type,
+    nutritionProfile,
+    subtotal,
+    total: subtotal,
+    status: "PREPARING",
+    deliveryAddress: plan.user.address,
+    deliveryEta: new Date(dateAssigned).toISOString(),
+    items: {
+      create: items.map((item, index) => ({
+        ...item,
+        nutritionContext: {
+          mealIndex: index,
+          mealsPerDay: realNumber,
+        },
+      })),
     },
-    include: { items: true },
-  })
+  },
+})
 
   createdOrders.push(order)
 }
@@ -265,9 +304,9 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
         return {
           meal: { connect: { id: meal.id } },
           name: meal.name!,
-          unitPrice: meal.price || 0,
+          unitPrice:  0,
           quantity: 1,
-          totalPrice: meal.price || 0,
+          totalPrice:  0,
         }
       }).filter((item): item is NonNullable<typeof item> => item !== null) // ✅ tells TS
 
@@ -275,19 +314,60 @@ router.post('/orders/from-plan/:planId', async (req: Request, res: Response) => 
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
     if (!plan.user?.address) throw "User needs a delivery address"
+    let carbGoal = 0 
+    let proteinGoal = 0
     // 5️⃣ Create order
+     switch(plan.type){
+    case "custom":
+      proteinGoal = plan.customProtein || 200
+      carbGoal = plan.customCarb || 200
+      break;
+    case "gain":
+      proteinGoal = 250
+      carbGoal = 250
+      break;
+    case "loss":
+      proteinGoal = 150
+      carbGoal = 150
+      break;
+    default:
+      proteinGoal = 200
+      carbGoal = 200
+      break;
+  }
+    
+
+  const nutritionProfile = {
+  planType: plan.type,
+    proteinTarget: proteinGoal,
+    carbTarget: carbGoal,
+    mealsPerDay: realNumber,
+    snack: plan.snack,
+  }
+
+ 
     const order = await prisma.order.create({
-      data: {
-        userId: plan.userId,
-        subtotal,
-        total: subtotal,
-        status: "PREPARING",
-        deliveryAddress: plan.user.address ,
-        deliveryEta: new Date(dateAssigned).toISOString() || new Date().toISOString() , // 👈 attach user address
-        items: { create: items },
-      },
-      include: { items: true },
-    })
+  data: {
+    userId: plan.userId,
+    planType: plan.type,
+    nutritionProfile,
+    subtotal,
+    total: subtotal,
+    status: "PREPARING",
+    deliveryAddress: plan.user.address,
+    deliveryEta: new Date(dateAssigned).toISOString(),
+    items: {
+      create: items.map((item, index) => ({
+        ...item,
+        nutritionContext: {
+          mealIndex: index,
+          mealsPerDay: realNumber,
+        },
+      })),
+    },
+  },
+})
+
 
     res.status(201).json(order)
   } catch (err: any) {
@@ -301,13 +381,21 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     
  
-    const { userId, driverId, status, page = '1', pageSize = '10', name, today } = req.query;
+    const { userId, driverId, status, upcoming, page = '1', pageSize = '10', name, today } = req.query;
 const pageNum = parseInt(page as string, 10);
 const size = parseInt(pageSize as string, 10);
 
 const where: any = {};
-
+const now = new Date()
 if (userId) where.userId = String(userId);
+if (upcoming) {
+  const start = now.toISOString()
+  
+  where.deliveryEta = {
+    gte: start,
+  }
+}
+
 if (driverId) where.driverId = String(driverId);
 if (name) where.user = { fullName: { contains: String(name), mode: 'insensitive' } };
 
@@ -390,8 +478,46 @@ router.patch('/:id/assign-driver', async (req: Request, res: Response) => {
     const order = await prisma.order.update({
       where: { id },
       data: { driverId, status: 'EN_ROUTE' }, // set next status as appropriate
-      include: { driver: true },
+      include: { driver: true, user:true },
     })
+   let address = 'None Provided'
+
+if (order.user?.address) {
+  try {
+    const addr =
+      typeof order.user.address === 'string'
+        ? JSON.parse(order.user.address)
+        : order.user.address
+
+    if (addr?.address) {
+      address = addr.address
+    }
+     if (addr?.specificAddress) {
+      address = address + " : " + addr.specificAddress
+    }
+  } catch {
+    // silently fail → keep "None Provided"
+  }
+}
+
+    let phone = 'None Provided'
+    if(order.user.phone)
+    {
+      phone = order.user.phone
+    }
+     if(order.driver && order.user )
+            await sendEmail({
+                  to: order.driver.email,
+                  subject: 'We have populated your orders!',
+                  html: `
+                    <p>Hi ${order.driver.fullName},</p>
+                    <p>You have been assigned as a driver to Order:<strong>${order.id}</strong>,for ${order.user.fullName}.</p>
+                    <p>Delivering on: ${order.deliveryEta}. Please arrive an hour earlier!</p>
+                    <p>The order is to be delivered to:${address}.</p>
+                    <p>Customer phone: ${phone}}</p>
+                    <p>— Chef Beirut</p>
+                  `,
+              })
     res.json(order)
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to assign driver' })

@@ -31,6 +31,7 @@ model User {
   orders        Order[]
   plans         Plan[]
   transactions  Transaction[]
+  requests      PlanRequest[]
   resetToken      String?
   resetTokenExpiry DateTime?
 }
@@ -55,6 +56,8 @@ model Plan {
   estimatedPrice Float?
   type           String?
   noMeals        Int?
+  customProtein  Int?
+  customCarb     Int?
   snack          Boolean?
   noBreakfast    Boolean?
   noDays         Int?
@@ -63,6 +66,7 @@ model Plan {
   expiryDate     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  requests       PlanRequest[]
   user           User?     @relation(fields: [userId], references: [id])
 }
 
@@ -73,14 +77,14 @@ model Meal {
   description String?
   type        String?
   available   Boolean     @default(true)
-  stock       Int?
+  stock       Int?        @ignore
   ingredients Json?
-  macros      Json?
+  macros      Json?       @ignore
   photo       String?
   category    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  price       Float?      // ← keep but optional for now
+  price       Float?      @ignore
   orderItems  OrderItem[]
 }
 
@@ -105,6 +109,8 @@ model Order {
   user            User          @relation(fields: [userId], references: [id])
   items           OrderItem[]
   transactions    Transaction[]
+  nutritionProfile Json?
+  planType         String?
 }
 
 /// OrderItem stores a snapshot of name/price at time of purchase.
@@ -121,7 +127,8 @@ model OrderItem {
   updatedAt  DateTime @updatedAt
   meal       Meal?    @relation(fields: [mealId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id])
-  
+  product    Product? @relation(fields: [productId], references: [id])
+  nutritionContext Json?
 }
 
 /// Transactions (payments / receipts). Many transactions can reference one order;
@@ -141,6 +148,49 @@ model Transaction {
   order     Order?   @relation(fields: [orderId], references: [id])
   user      User?    @relation(fields: [userId], references: [id])
 }
+model Schedule {
+  id        String   @id @default(uuid())
+  day       String   @unique // fri, sat, sun...
+  meals     String[] @default([]) // meal IDs (max 5 enforced in backend)
+  snackId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+
+model PlanRequest {
+  id            String   @id @default(uuid())
+
+  userId        String
+  planId        String
+
+  type          PlanRequestType
+  status        PlanRequestStatus @default(PENDING)
+
+  /** User-provided reason (required for cancellation) */
+  reason        String?
+
+  /** Requested changes (JSON diff, flexible) */
+  requestedData Json?
+
+  /** Admin notes / resolution context */
+  adminNotes    String?
+
+  /** Stripe-related (only for cancellation/refund) */
+  refundAmount  Float?
+  refundedAt    DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id])
+  plan          Plan     @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+}
+
 
 /// Orders and items. OrderItem can reference a Product or a Meal.
 ///   Order.driver links to User via the "DriverOrders" relation declared on User.
@@ -158,5 +208,17 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  REFUNDED
+}
+
+enum PlanRequestType {
+  PLAN_CHANGE
+  CANCELLATION
+}
+
+enum PlanRequestStatus {
+  PENDING
+  ACCEPTED
+  DENIED
   REFUNDED
 }
