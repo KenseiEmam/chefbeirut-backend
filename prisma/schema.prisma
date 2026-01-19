@@ -27,49 +27,15 @@ model User {
   dietProfile   String[]      @default([])
   roles         String[]      @default([])
   address       Json?
-  cart          Cart?
   drivenOrders  Order[]       @relation("DriverOrders")
   orders        Order[]
   plans         Plan[]
-  reviews       Review[]
   transactions  Transaction[]
   resetToken      String?
   resetTokenExpiry DateTime?
 }
 
-/// Cart and items (one cart per user - userId is unique).
-model Cart {
-  id             String     @id @default(uuid())
-  userId         String?    @unique
-  estimatedPrice Float?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  user           User?      @relation(fields: [userId], references: [id])
-  items          CartItem[]
-}
 
-/// Product model for ecommerce food items.
-///   orderItems changed to array (many OrderItem per Product).
-model Product {
-  id           String      @id @default(uuid())
-  name         String
-  description  String?
-  details      String?
-  price        Float
-  discount     Float?
-  stock        Int         @default(0)
-  deliveryTime String?
-  photo        String?
-  photos       String[]    @default([])
-  category     String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
-  reviews      Review[]
-  Product_A    Product[]   @relation("RelatedProducts")
-  Product_B    Product[]   @relation("RelatedProducts")
-}
 
 /// S3File can reference a media item at the S3 storage.
 model S3File {
@@ -79,28 +45,7 @@ model S3File {
   createdAt DateTime @default(now())
 }
 
-/// CartItem can reference a product OR a plan (polymorphic-like).
-model CartItem {
-  id        String   @id @default(uuid())
-  cartId    String
-  productId String?
-  quantity  Int      @default(1)
-  plan      Json?
-  cart      Cart     @relation(fields: [cartId], references: [id])
-  product   Product? @relation(fields: [productId], references: [id])
-}
 
-/// Reviews left by users on products.
-model Review {
-  id        String   @id @default(uuid())
-  rating    Int
-  comment   String?
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-}
 
 /// Plan - subscription / meal plans; relation to user
 model Plan {
@@ -135,7 +80,7 @@ model Meal {
   category    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  price       Float?      @default(0)
+  price       Float?      // ← keep but optional for now
   orderItems  OrderItem[]
 }
 
@@ -163,11 +108,10 @@ model Order {
 }
 
 /// OrderItem stores a snapshot of name/price at time of purchase.
-///   productId and mealId are optional; include product/meal back-relations on those models.
+
 model OrderItem {
   id         String   @id @default(uuid())
   orderId    String
-  productId  String?
   mealId     String?
   name       String?
   unitPrice  Float
@@ -177,7 +121,7 @@ model OrderItem {
   updatedAt  DateTime @updatedAt
   meal       Meal?    @relation(fields: [mealId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id])
-  product    Product? @relation(fields: [productId], references: [id])
+  
 }
 
 /// Transactions (payments / receipts). Many transactions can reference one order;
